@@ -17,9 +17,9 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>DIGIY PAY Baptiste — Libellé, chiffre, journal vivant</title>
+  <title>DIGIY PAY Baptiste — Entrées courtes, sorties rapides</title>
   <meta name="theme-color" content="#07150f" />
-  <meta name="description" content="PAY Baptiste : libellés rapides, chiffre roi, entrées/sorties instantanées, journal vivant et sauvegarde." />
+  <meta name="description" content="PAY Baptiste : entrées courtes, sorties rapides, chiffre roi, journal vivant et sauvegarde." />
   <!-- Sécurité : bouton Ouvrir retiré, aucun lien module ne peut allonger l’URL. -->
   <style>
     :root{--bg:#06140f;--ink:#172016;--green:#167a46;--green2:#22c55e;--gold:#c4973f;--gold2:#f4d27a;--red:#9a3412;--line:rgba(78,56,25,.22);--max:560px;--shadow:0 18px 48px rgba(0,0,0,.24)}
@@ -162,6 +162,9 @@
     {id:"lp-sendwave",pocket:"perso",type:"income",label:"Retrait Sendwave",mode:"Sendwave",activity:"Maison",category:"Retraits / banques",note:"Retrait ou réception Sendwave."},
     {id:"lp-distributeur",pocket:"perso",type:"income",label:"Retrait distributeur",mode:"Distributeur",activity:"Maison",category:"Retraits / banques",note:"Retrait ATM / distributeur."},
     {id:"lp-wave-cashout",pocket:"perso",type:"income",label:"Retrait Wave / cash out",mode:"Wave",activity:"Maison",category:"Retraits / banques",note:"Cash retiré depuis Wave."},
+    {id:"lp-remboursement-recu",pocket:"perso",type:"income",label:"Remboursement reçu",mode:"Wave",activity:"Maison",category:"Entrées personnelles",note:"Argent remboursé / retour reçu."},
+    {id:"lp-aide-recue",pocket:"perso",type:"income",label:"Aide reçue",mode:"Wave",activity:"Maison",category:"Entrées personnelles",note:"Aide famille / soutien reçu."},
+    {id:"lp-autre-entree",pocket:"perso",type:"income",label:"Autre entrée",mode:"Cash",activity:"Maison",category:"Entrées personnelles",note:"Entrée ponctuelle à préciser."},
     {id:"lp-prelevement-fr",pocket:"perso",type:"expense",label:"Prélèvement banque France",mode:"Banque France",activity:"Charges",category:"Retraits / banques",note:"Prélèvement automatique compte France."},
     {id:"lp-frais-banque",pocket:"perso",type:"expense",label:"Frais bancaire",mode:"Banque France",activity:"Charges",category:"Retraits / banques",note:"Frais de compte / carte."}
   ],labels:["Recette","Acompte","Abonnement","Retraite","Remboursement reçu","Aide reçue","Crédit","Dette payée","Dette reçue","Assurance","Senelec","SEN’EAU","Orange","Wi-Fi","Gasoil","Ravitaillement","École","Vêtements","Frais voiture","Retrait Sendwave","Retrait distributeur","Prélèvement banque France","Personnel #soi-même"],people:["#soi-même","Famille"],contacts:[],movements:[]};
@@ -180,8 +183,52 @@
   function renderDatalists(){els.labelsList.innerHTML=state.labels.map(x=>`<option value="${esc(x)}"></option>`).join("");els.peopleList.innerHTML=state.people.map(x=>`<option value="${esc(x)}"></option>`).join("");renderModeSelect();renderActivitySelect();els.contactModule.innerHTML=state.activities.map(a=>`<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("")} function renderModeSelect(){const p=els.movePocket.value||pocket();els.moveMode.innerHTML=modesFor(p).map(m=>`<option value="${m}">${m}</option>`).join("");els.moveMode.value=cleanMode(p,els.moveMode.value)} function renderActivitySelect(){const p=els.movePocket.value||pocket();els.moveActivity.innerHTML=state.activities.filter(a=>a.pocket===p).map(a=>`<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("")}
   function presetVisible(pr,p){return pr&&pr.label&&(pr.pocket===p||pr.pocket==="both")} function chipClass(pr){if(pr.category&&pr.category.toLowerCase().includes("banque"))return "bank";return pr.type==="income"?"income":"expense"} function presetGroups(kind){const p=pocket();const order=kind==="income"?["Entrées / modules","Retraits / banques","Mes libellés"]:["Sorties rapides","Retraits / banques","Mes libellés"];const groups={};state.labelPresets.filter(pr=>presetVisible(pr,p)&&pr.type===kind).forEach(pr=>{const cat=pr.category||"Mes libellés";(groups[cat]||(groups[cat]=[])).push(pr)});return {order,groups}}
   function presetButton(pr){return `<button class="label-chip ${chipClass(pr)}" type="button" data-label-preset="${esc(pr.id)}"><b>${esc(pr.label)}</b><small>${pr.type==="income"?"Entrée":"Sortie"} · ${esc(cleanMode(pr.pocket==="both"?pocket():pr.pocket,pr.mode))}</small></button>`}
-  function openPresetPage(kind){const p=pocket();const title=kind==="income"?"Entrées · sources d’argent":"Sorties · libellés rapides";const body=document.getElementById("choiceBody"),titleEl=document.getElementById("choiceTitle");if(!body||!titleEl)return openMovement(kind);titleEl.textContent=title;const pg=presetGroups(kind);let html=`<div class="notice">${kind==="income"?"Choisis la source : module, retraite, virement ou retrait. Ensuite tu poses le chiffre.":"Choisis le motif : gasoil, Senelec, école, Wi-Fi, frais voiture… Ensuite tu poses le chiffre."}</div>`;pg.order.concat(Object.keys(pg.groups).filter(k=>!pg.order.includes(k))).forEach(cat=>{const arr=(pg.groups[cat]||[]).slice(0,18);if(!arr.length)return;html+=`<div class="quick-label-group"><div class="quick-label-title">${esc(cat)}</div><div class="quick-label-grid">`+arr.map(presetButton).join("")+`</div></div>`});if(kind==="income"){const acts=state.activities.filter(a=>a.pocket===p);if(acts.length){html+=`<div class="quick-label-group"><div class="quick-label-title">Sources modules</div><div class="quick-label-grid">`+acts.map(a=>`<button class="label-chip income" type="button" data-add-module="${esc(a.name)}" data-type="income"><b>${esc(a.name)}</b><small>Entrée · ${p==="pro"?"Wave":"Cash/Wave"}</small></button>`).join("")+`</div></div>`}}
-    if(!html.includes("label-chip"))html+=`<div class="empty">Aucun choix rapide. Ajoute un libellé dans Réglages.</div>`;body.innerHTML=html;openModal("choiceModal")}
+  function openPresetPage(kind){
+    const p=pocket();
+    const title=kind==="income"?"Entrées · sources d’argent":"Sorties · libellés rapides";
+    const body=document.getElementById("choiceBody"),titleEl=document.getElementById("choiceTitle");
+    if(!body||!titleEl)return openMovement(kind);
+    titleEl.textContent=title;
+    let html="";
+
+    if(kind==="income"){
+      html+=`<div class="notice">Entrées courtes : modules qui font rentrer l’argent, retraite, virement reçu ou retrait. Pas les charges ici.</div>`;
+      if(p==="pro"){
+        const acts=state.activities.filter(a=>a.pocket==="pro" && !["PAY PRO"].includes(a.name));
+        if(acts.length){
+          html+=`<div class="quick-label-group"><div class="quick-label-title">Modules qui font rentrer</div><div class="quick-label-grid">`+
+            acts.map(a=>`<button class="label-chip income" type="button" data-add-module="${esc(a.name)}" data-type="income"><b>${esc(a.name)}</b><small>Entrée · Wave</small></button>`).join("")+
+            `</div></div>`;
+        }
+        const extras=state.labelPresets.filter(pr=>presetVisible(pr,p)&&pr.type==="income"&&!(pr.category||"").includes("Entrées / modules"));
+        if(extras.length){
+          html+=`<div class="quick-label-group"><div class="quick-label-title">Autres entrées PRO</div><div class="quick-label-grid">`+extras.map(presetButton).join("")+`</div></div>`;
+        }
+      }else{
+        const wanted=["Retraite","Virement reçu","Retrait virement","Retrait Sendwave","Retrait distributeur","Retrait Wave / cash out","Remboursement reçu","Aide reçue","Autre entrée"];
+        const arr=wanted.map(name=>state.labelPresets.find(pr=>presetVisible(pr,p)&&pr.type==="income"&&pr.label===name)).filter(Boolean);
+        if(arr.length){
+          html+=`<div class="quick-label-group"><div class="quick-label-title">Sources personnelles</div><div class="quick-label-grid">`+arr.map(presetButton).join("")+`</div></div>`;
+        }
+        const custom=state.labelPresets.filter(pr=>presetVisible(pr,p)&&pr.type==="income"&&!wanted.includes(pr.label));
+        if(custom.length){
+          html+=`<div class="quick-label-group"><div class="quick-label-title">Mes entrées</div><div class="quick-label-grid">`+custom.map(presetButton).join("")+`</div></div>`;
+        }
+      }
+    }else{
+      html+=`<div class="notice">Choisis le motif : gasoil, Senelec, école, Wi-Fi, frais voiture… Ensuite tu poses le chiffre.</div>`;
+      const pg=presetGroups(kind);
+      pg.order.concat(Object.keys(pg.groups).filter(k=>!pg.order.includes(k))).forEach(cat=>{
+        const arr=(pg.groups[cat]||[]).slice(0,18);
+        if(!arr.length)return;
+        html+=`<div class="quick-label-group"><div class="quick-label-title">${esc(cat)}</div><div class="quick-label-grid">`+arr.map(presetButton).join("")+`</div></div>`;
+      });
+    }
+
+    if(!html.includes("label-chip"))html+=`<div class="empty">Aucun choix rapide. Ajoute un libellé dans Réglages.</div>`;
+    body.innerHTML=html;
+    openModal("choiceModal");
+  }
   function renderQuickLabels(){if(!els.quickLabelWrap)return;const p=pocket();const order=["Sorties rapides","Entrées / modules","Retraits / banques","Mes libellés"];const groups={};state.labelPresets.filter(pr=>presetVisible(pr,p)).forEach(pr=>{const cat=pr.category||"Mes libellés";(groups[cat]||(groups[cat]=[])).push(pr)});let html="";order.concat(Object.keys(groups).filter(k=>!order.includes(k))).forEach(cat=>{const arr=(groups[cat]||[]).slice(0,12);if(!arr.length)return;html+=`<div class="quick-label-group"><div class="quick-label-title">${esc(cat)}</div><div class="quick-label-grid">`+arr.map(pr=>`<button class="label-chip ${chipClass(pr)}" type="button" data-label-preset="${esc(pr.id)}"><b>${esc(pr.label)}</b><small>${pr.type==="income"?"Entrée":"Sortie"} · ${esc(cleanMode(p,pr.mode))}</small></button>`).join("")+`</div></div>`});els.quickLabelWrap.innerHTML=html||'<div class="empty">Aucun libellé rapide. Ajoute-le dans Réglages.</div>'} function openLabelPreset(id){const p=pocket();const pr=state.labelPresets.find(x=>x.id===id);if(!pr)return;closeModal("choiceModal");const pp=pr.pocket==="both"?p:pr.pocket;openMovement(pr.type,{pocket:pp,type:pr.type,mode:cleanMode(pp,pr.mode),amount:"",label:pr.label,activity:defaultActivityFor(pr.activity),person:"",note:pr.note||""})}
   function renderModules(){const p=pocket();const q=String(els.searchInput.value||"").trim().toLowerCase();let arr=state.activities.filter(a=>a.pocket===p);if(q)arr=arr.filter(a=>a.name.toLowerCase().includes(q));els.modulesTitle.textContent=p==="pro"?"Sources d’argent PRO":"Sources PERSO";if(!arr.length){els.moduleList.innerHTML='<div class="empty">Aucun module. Ajoute-le dans Admin.</div>';return}els.moduleList.innerHTML=arr.map(a=>{const total=listFor(p).filter(m=>m.activity===a.name).reduce((s,m)=>s+amountValue(m),0);return `<article class="module-row"><div><div class="module-title">${esc(a.name)}</div><div class="meta">Total : ${state.settings.eyeOpen?fmt(total):hidden()} · ${p==="pro"?"Wave":"Cash/Wave"}</div></div><div class="module-actions"><button class="small-btn plus" data-add-module="${esc(a.name)}" data-type="income">+ Rentrée</button><button class="small-btn minus" data-add-module="${esc(a.name)}" data-type="expense">- Sortie</button></div></article>`}).join("")}
   function movementFilter(){return ["income","expense"].includes(state.settings.movementFilter)?state.settings.movementFilter:"all"} function setMovementFilter(f){state.settings.movementFilter=["income","expense"].includes(f)?f:"all";state.settings.visibleCount=10;save();renderMovements()} function baseMovementsForJournal(){const q=String(els.searchInput.value||"").trim().toLowerCase();let l=listFor(pocket());if(q)l=l.filter(m=>[m.label,m.activity,m.person,m.note,m.mode,String(m.amount)].join(" ").toLowerCase().includes(q));return l} function filteredMovements(){let l=baseMovementsForJournal();const f=movementFilter();if(f!=="all")l=l.filter(m=>m.type===f);return l} function renderMovements(){const f=movementFilter(),base=baseMovementsForJournal(),l=filteredMovements(),limit=state.settings.visibleCount||10,shown=l.slice(0,limit);if(els.filterAll){els.filterAll.classList.toggle("active",f==="all");els.filterIncome.classList.toggle("active",f==="income");els.filterExpense.classList.toggle("active",f==="expense")}const inSum=base.filter(m=>m.type==="income").reduce((s,m)=>s+Number(m.amount||0),0),outSum=base.filter(m=>m.type==="expense").reduce((s,m)=>s+Number(m.amount||0),0);if(els.journalMini)els.journalMini.textContent=(state.settings.eyeOpen?`Entrées ${fmt(inSum)} · Sorties ${fmt(outSum)} · Net ${fmt(inSum-outSum)}`:"Entrées ••• F · Sorties ••• F · Net ••• F");els.movementTitle.textContent=els.searchInput.value?(f==="income"?"Entrées trouvées":f==="expense"?"Sorties trouvées":"Mouvements trouvés"):(f==="income"?"Dernières entrées":f==="expense"?"Dernières sorties":"Dernières situations");els.btnMore.style.display=l.length>limit?"block":"none";if(!shown.length){els.movementList.innerHTML=f==="income"?'<div class="empty">Aucune entrée dans ce listing.</div>':f==="expense"?'<div class="empty">Aucune sortie dans ce listing.</div>':'<div class="empty">Base vierge. Ajoute ton premier mouvement réel.</div>';return}els.movementList.innerHTML=shown.map(m=>{const d=new Date(m.ts),time=d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),plus=m.type==="income",meta=[m.mode,m.activity,m.person,m.note].filter(Boolean).join(" · ");return `<article class="movement ${plus?"income-row":"expense-row"}"><div class="move-lines"><div class="move-main"><span class="label">${esc(m.label)}</span><span class="amount ${plus?"plus":"minus"}">${state.settings.eyeOpen?signed(m):hidden()}</span></div><div class="move-sub">${esc(meta||"PAY")} · ${time}</div><div class="move-actions"><button class="small-btn" data-edit-move="${esc(m.id)}">Modifier</button><button class="small-btn" data-dup-move="${esc(m.id)}">Dupliquer</button><button class="small-btn danger" data-del-move="${esc(m.id)}">Supprimer</button></div></div></article>`}).join("")}
@@ -219,6 +266,9 @@
 </script>
 </body>
 </html>
+
+
+
 
 
 
