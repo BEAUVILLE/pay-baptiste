@@ -53,7 +53,7 @@
   function add(n){if(locked()){update();msgSet('err','Patiente quelques secondes.');return}pinInput.value=digits(pinInput.value)+String(n);msgSet('','');update()}
   function back(){pinInput.value=digits(pinInput.value).slice(0,-1);msgSet('','');update()}
   function clear(){pinInput.value='';msgSet('','');update();pinInput.focus()}
-  function fail(){const a=num(CONFIG.ATTEMPTS_KEY)+1;localStorage.setItem(CONFIG.ATTEMPTS_KEY,String(a));if(a>=CONFIG.MAX_ATTEMPTS){localStorage.setItem(CONFIG.LOCK_KEY,String(now()+CONFIG.LOCK_SECONDS*1000));localStorage.setItem(CONFIG.ATTEMPTS_KEY,'0');msgSet('err','Trop d'essais. Pause '+CONFIG.LOCK_SECONDS+' secondes.')}else msgSet('err','PIN incorrect. Vérifie puis recommence.');pinInput.value='';update()}
+  function fail(){const a=num(CONFIG.ATTEMPTS_KEY)+1;localStorage.setItem(CONFIG.ATTEMPTS_KEY,String(a));if(a>=CONFIG.MAX_ATTEMPTS){localStorage.setItem(CONFIG.LOCK_KEY,String(now()+CONFIG.LOCK_SECONDS*1000));localStorage.setItem(CONFIG.ATTEMPTS_KEY,'0');msgSet('err',"Trop d'essais. Pause "+CONFIG.LOCK_SECONDS+" secondes.")}else msgSet('err',"PIN incorrect. Vérifie puis recommence.");pinInput.value='';update()}
   async function openVault(){
     if(locked()){update();return}
     const p=digits(pinInput.value);
