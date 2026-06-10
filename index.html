@@ -17,7 +17,7 @@
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>DIGIY PAY Baptiste — Chiffre, mode, trace</title>
+  <title>DIGIY PAY Baptiste — Chiffre, mode, trace plein écran</title>
   <meta name="theme-color" content="#07150f" />
   <meta name="description" content="PAY Baptiste : solde, gestes rapides, montant en premier, mode de règlement, motif, source et trace." />
   <!-- Sécurité : bouton Ouvrir retiré, aucun lien module ne peut allonger l’URL. -->
@@ -45,6 +45,22 @@
     @keyframes flashNum{0%{opacity:.45;transform:scale(.97)}60%{opacity:1;transform:scale(1.03)}100%{opacity:1;transform:scale(1)}}
     .flash{animation:flashNum .32s ease}
     @media(max-width:430px){.app{padding:0 0 108px}.shell{border-radius:0;border-left:none;border-right:none;min-height:100vh}.amount-big{font-size:38px}.content{padding:12px}.pay-actions{grid-template-columns:repeat(4,1fr);gap:8px}.pay-action{min-height:78px;border-radius:20px}.pay-action .bubble{width:38px;height:38px;font-size:21px}.pay-action b{font-size:12px}.pay-action small{font-size:9px}.grid2,.backup-actions{grid-template-columns:1fr}.modal-bg{padding:0}.modal{border-radius:26px 26px 0 0;max-height:92vh}.round{min-width:50px}.title b{font-size:19px}.cards{grid-template-columns:1fr 1fr 1fr}.module-row,.movement,.contact-row{grid-template-columns:1fr}.module-actions,.row-actions,.contact-actions{justify-content:flex-start}.bottom-inner{gap:5px;padding:7px}.bottom button{font-size:9.5px}}
+
+
+    /* CONFORT TÉLÉPHONE — les pages appelées montent en plein écran */
+    body.modal-open{overflow:hidden;touch-action:none}
+    @media(max-width:430px){
+      .modal-bg{padding:0;align-items:stretch;justify-content:center;background:rgba(0,0,0,.72)}
+      .modal-bg.open{display:flex}
+      .modal{width:100%;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;border-radius:0;border:none;box-shadow:none;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#fffaf0,#ead7aa)}
+      .modal-head{flex:0 0 auto;padding-top:calc(14px + env(safe-area-inset-top,0px));min-height:66px}
+      .modal-head strong{font-size:22px}
+      .modal-body{flex:1 1 auto;overflow:auto;-webkit-overflow-scrolling:touch;padding:15px 15px calc(26px + env(safe-area-inset-bottom,0px))}
+      #movementModal .modal-body{padding-bottom:calc(120px + env(safe-area-inset-bottom,0px))}
+      #movementModal .save{position:sticky;bottom:0;min-height:60px;border-radius:20px;box-shadow:0 -10px 26px rgba(234,215,170,.75)}
+      #movementModal .field:first-of-type{margin-top:2px}
+      .amount-first input{min-height:82px!important;font-size:38px;border-radius:22px;background:#fff}
+    }
   </style>
 </head>
 <body>
@@ -119,7 +135,7 @@
   function clone(o){return JSON.parse(JSON.stringify(o))} function uid(p){return p+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4)} function unique(a){return [...new Set(a.filter(Boolean))]} function load(){try{const raw=localStorage.getItem(STORAGE_KEY);return raw?JSON.parse(raw):clone(defaults)}catch(e){return clone(defaults)}} function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
   function normalize(s){s=Object.assign(clone(defaults),s||{}, {settings:Object.assign(clone(defaults.settings),(s&&s.settings)||{})});s.activities=Array.isArray(s.activities)?s.activities:clone(defaults.activities);s.activities=s.activities.map(a=>Object.assign({id:uid("act"),pocket:"pro",name:"Module",url:""},a));s.labels=unique(defaults.labels.concat(Array.isArray(s.labels)?s.labels:[]));s.people=unique(defaults.people.concat(Array.isArray(s.people)?s.people:[]));s.contacts=Array.isArray(s.contacts)?s.contacts:[];s.movements=Array.isArray(s.movements)?s.movements:[];s.movements=s.movements.map(m=>Object.assign({},m,{pocket:m.pocket==="perso"?"perso":"pro",mode:cleanMode(m.pocket,m.mode),amount:Number(m.amount||0),ts:m.ts||new Date().toISOString()}));s.settings.pocket=s.settings.pocket==="perso"?"perso":"pro";s.settings.eyeOpen=s.settings.eyeOpen!==false;s.settings.visibleCount=Number(s.settings.visibleCount||10);return s}
   function esc(v){return String(v||"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))} function fmt(n){return Math.abs(Math.round(Number(n||0))).toLocaleString("fr-FR").replace(/\u202f/g," ")+" F"} function signed(m){return (m.type==="income"?"+":"-")+fmt(m.amount)} function hidden(){return "••• F"} function pocket(){return state.settings.pocket||"pro"} function modesFor(p){return p==="perso"?["Cash","Wave"]:["Wave"]} function cleanMode(p,m){p=p==="perso"?"perso":"pro";m=String(m||"").trim();return modesFor(p).includes(m)?m:modesFor(p)[0]} function amountValue(m){return m.type==="income"?Number(m.amount||0):-Number(m.amount||0)} function startWeek(d){const x=new Date(d),day=(x.getDay()+6)%7;x.setHours(0,0,0,0);x.setDate(x.getDate()-day);return x} function inPeriod(ts,per){const d=new Date(ts),n=new Date();if(per==="day")return d.toDateString()===n.toDateString();if(per==="week")return d>=startWeek(n);if(per==="month")return d>=new Date(n.getFullYear(),n.getMonth(),1);return true} function listFor(p){return state.movements.filter(m=>m.pocket===p).sort((a,b)=>new Date(b.ts)-new Date(a.ts))} function balance(p){return listFor(p).reduce((s,m)=>s+amountValue(m),0)} function periodNet(p,per){return listFor(p).filter(m=>inPeriod(m.ts,per)).reduce((s,m)=>s+amountValue(m),0)} function phoneClean(v){let p=String(v||"").replace(/[^0-9+]/g,""); if(p.startsWith("00"))p="+"+p.slice(2); return p} function waPhone(v){let p=phoneClean(v).replace(/^\+/,""); return p}
-  function openModal(id){$(id).classList.add("open")} function closeModal(id){$(id).classList.remove("open")} document.addEventListener("click",e=>{const c=e.target.closest("[data-close]");if(c)closeModal(c.getAttribute("data-close"));if(e.target.classList.contains("modal-bg"))e.target.classList.remove("open")});
+  function syncModalLock(){document.body.classList.toggle("modal-open",!!document.querySelector(".modal-bg.open"))} function openModal(id){$(id).classList.add("open");syncModalLock()} function closeModal(id){$(id).classList.remove("open");syncModalLock()} document.addEventListener("click",e=>{const c=e.target.closest("[data-close]");if(c)closeModal(c.getAttribute("data-close"));if(e.target.classList.contains("modal-bg")){e.target.classList.remove("open");syncModalLock()}});
   function flash(el){if(!el)return;el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash")}
   function renderHeader(p,eye){p=p||pocket();eye=eye!==undefined?eye:state.settings.eyeOpen;els.tabPro.classList.toggle("active",p==="pro");els.tabPerso.classList.toggle("active",p==="perso");els.walletName.textContent="Solde "+(p==="pro"?"PRO":"PERSO");const nb=eye?fmt(balance(p)):hidden();if(els.balanceNumber.textContent!==nb){els.balanceNumber.textContent=nb;flash(els.balanceNumber)}els.btnEye.textContent=eye?"👁 Ouvert":"🙈 Fermé";els.todayMini.textContent="Aujourd’hui "+(eye?fmt(periodNet(p,"day")):hidden());els.modeMini.textContent=p==="pro"?"Wave only":"Cash + Wave";els.frontNotice.textContent=p==="pro"?"PRO : Wave only. Clique un geste, pose le montant, PAY range par source.":"PERSO : Cash + Wave. Clique un geste, pose le montant, garde la trace.";const sd=eye?fmt(periodNet(p,"day")):hidden();if(els.sumDay.textContent!==sd){els.sumDay.textContent=sd;flash(els.sumDay)}const sw=eye?fmt(periodNet(p,"week")):hidden();if(els.sumWeek.textContent!==sw){els.sumWeek.textContent=sw;flash(els.sumWeek)}const sm=eye?fmt(periodNet(p,"month")):hidden();if(els.sumMonth.textContent!==sm){els.sumMonth.textContent=sm;flash(els.sumMonth)}renderModeSummary();}
   function setPocket(p){state.settings.pocket=p;state.settings.visibleCount=10;save();render()}
@@ -163,6 +179,8 @@
 </script>
 </body>
 </html>
+
+
 
 
 
