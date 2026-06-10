@@ -2,6 +2,40 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
+<script>
+(function () {
+  "use strict";
+
+  const SESSION_KEY = "digiy_pay_baptiste_validated_at";
+  const SESSION_MS = 8 * 60 * 60 * 1000; // 8 heures
+  const PIN_PAGE = "./pin.html";
+
+  const path = window.location.pathname || "";
+  const isPinPage = /\/pin\.html$/i.test(path);
+
+  if (isPinPage) return;
+
+  const raw = localStorage.getItem(SESSION_KEY);
+  const validatedAt = Number(raw || 0);
+  const valid =
+    validatedAt &&
+    Number.isFinite(validatedAt) &&
+    Date.now() - validatedAt < SESSION_MS;
+
+  if (!valid) {
+    const current =
+      window.location.pathname +
+      window.location.search +
+      window.location.hash;
+
+    const url = new URL(PIN_PAGE, window.location.href);
+    url.searchParams.set("next", current);
+
+    window.location.replace(url.toString());
+  }
+})();
+</script>
+  
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>DIGIY PAY — PRO / PERSO</title>
   <meta name="theme-color" content="#07150f" />
