@@ -35,17 +35,55 @@
 <script>
 (function(){
   'use strict';
-  const CONFIG={REDIRECT_AFTER_OK:'./index.html',SESSION_KEY:'digiy_pay_baptiste_validated_at',SESSION_HOURS:8,PIN_HASH_SHA256:'03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4',MAX_ATTEMPTS:5,LOCK_SECONDS:30,LOCK_KEY:'digiy_pay_baptiste_pin_lock_until',ATTEMPTS_KEY:'digiy_pay_baptiste_pin_attempts'};
+  const SUPABASE_URL='https://wesqmwjjtsefyjnluosj.supabase.co';
+  const SUPABASE_ANON_KEY='sb_publishable_tGHItRgeWDmGjnd0CK1DVQ_BIep4Ug3';
+  const CONFIG={REDIRECT_AFTER_OK:'./index.html',SESSION_KEY:'digiy_pay_baptiste_validated_at',SESSION_HOURS:8,MAX_ATTEMPTS:5,LOCK_SECONDS:30,LOCK_KEY:'digiy_pay_baptiste_pin_lock_until',ATTEMPTS_KEY:'digiy_pay_baptiste_pin_attempts'};
   const SESSION_MS=CONFIG.SESSION_HOURS*60*60*1000;
+  const PHONE='221771342889';
+  const MODULE='PAY';
   const pinInput=document.getElementById('pinInput'),openBtn=document.getElementById('openBtn'),msg=document.getElementById('msg'),focusDots=document.getElementById('focusDots'),attemptText=document.getElementById('attemptText'),clearBtn=document.getElementById('clearBtn'),backBtn=document.getElementById('backBtn'),dotEls=Array.from(document.querySelectorAll('.dot'));
-  function now(){return Date.now()} function digits(v){return String(v||'').replace(/\D/g,'').slice(0,8)} function num(k){const n=Number(localStorage.getItem(k)||'0');return Number.isFinite(n)?n:0} function valid(){const ts=num(CONFIG.SESSION_KEY);return ts>0&&(now()-ts)<SESSION_MS} function locked(){const u=num(CONFIG.LOCK_KEY);return u>now()?u:0} function msgSet(t,x){msg.className='msg '+(t||'');msg.textContent=x||'';msg.style.display=x?'block':'none'}
-  async function sha256Hex(text){const data=new TextEncoder().encode(String(text||''));const hash=await crypto.subtle.digest('SHA-256',data);return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('')}
+  function now(){return Date.now()}
+  function digits(v){return String(v||'').replace(/\D/g,'').slice(0,8)}
+  function num(k){const n=Number(localStorage.getItem(k)||'0');return Number.isFinite(n)?n:0}
+  function valid(){const ts=num(CONFIG.SESSION_KEY);return ts>0&&(now()-ts)<SESSION_MS}
+  function locked(){const u=num(CONFIG.LOCK_KEY);return u>now()?u:0}
+  function msgSet(t,x){msg.className='msg '+(t||'');msg.textContent=x||'';msg.style.display=x?'block':'none'}
   function redirect(){window.location.replace(CONFIG.REDIRECT_AFTER_OK)}
   function update(){const v=digits(pinInput.value);pinInput.value=v;dotEls.forEach((d,i)=>d.classList.toggle('on',i<Math.min(v.length,4)));const l=locked();openBtn.disabled=v.length<4||!!l;attemptText.textContent=l?('Pause '+Math.ceil((l-now())/1000)+' s'):(num(CONFIG.ATTEMPTS_KEY)?('Essai '+num(CONFIG.ATTEMPTS_KEY)+'/'+CONFIG.MAX_ATTEMPTS):'Coffre fermé')}
-  function add(n){if(locked()){update();msgSet('err','Patiente quelques secondes.');return}pinInput.value=digits(pinInput.value)+String(n);msgSet('','');update()} function back(){pinInput.value=digits(pinInput.value).slice(0,-1);msgSet('','');update()} function clear(){pinInput.value='';msgSet('','');update();pinInput.focus()}
-  function fail(){const a=num(CONFIG.ATTEMPTS_KEY)+1;localStorage.setItem(CONFIG.ATTEMPTS_KEY,String(a));if(a>=CONFIG.MAX_ATTEMPTS){localStorage.setItem(CONFIG.LOCK_KEY,String(now()+CONFIG.LOCK_SECONDS*1000));localStorage.setItem(CONFIG.ATTEMPTS_KEY,'0');msgSet('err','Trop d’essais. Pause '+CONFIG.LOCK_SECONDS+' secondes.')}else msgSet('err','PIN incorrect. Vérifie puis recommence.');pinInput.value='';update()}
-  async function openVault(){if(locked()){update();return}const p=digits(pinInput.value);if(p.length<4){msgSet('err','Entre ton PIN.');return}openBtn.disabled=true;openBtn.textContent='Vérification…';try{if(await sha256Hex(p)===CONFIG.PIN_HASH_SHA256){localStorage.setItem(CONFIG.SESSION_KEY,String(now()));localStorage.setItem(CONFIG.ATTEMPTS_KEY,'0');localStorage.removeItem(CONFIG.LOCK_KEY);msgSet('ok','PIN validé. Ouverture…');openBtn.textContent='✅ Coffre ouvert';setTimeout(redirect,350);return}fail()}catch(e){msgSet('err','Vérification impossible sur ce navigateur.')}finally{if(!valid()){openBtn.textContent='🔐 Ouvrir mon argent';update()}}}
-  document.querySelectorAll('[data-num]').forEach(b=>b.addEventListener('click',()=>add(b.getAttribute('data-num'))));clearBtn.onclick=clear;backBtn.onclick=back;openBtn.onclick=openVault;focusDots.onclick=()=>pinInput.focus();pinInput.oninput=update;document.addEventListener('keydown',e=>{if(/^\d$/.test(e.key))add(e.key);else if(e.key==='Backspace')back();else if(e.key==='Enter')openVault()});setInterval(update,500);if(valid()){msgSet('ok','Session encore active. Ouverture…');setTimeout(redirect,250)}else{update();setTimeout(()=>pinInput.focus(),250)}
+  function add(n){if(locked()){update();msgSet('err','Patiente quelques secondes.');return}pinInput.value=digits(pinInput.value)+String(n);msgSet('','');update()}
+  function back(){pinInput.value=digits(pinInput.value).slice(0,-1);msgSet('','');update()}
+  function clear(){pinInput.value='';msgSet('','');update();pinInput.focus()}
+  function fail(){const a=num(CONFIG.ATTEMPTS_KEY)+1;localStorage.setItem(CONFIG.ATTEMPTS_KEY,String(a));if(a>=CONFIG.MAX_ATTEMPTS){localStorage.setItem(CONFIG.LOCK_KEY,String(now()+CONFIG.LOCK_SECONDS*1000));localStorage.setItem(CONFIG.ATTEMPTS_KEY,'0');msgSet('err','Trop d'essais. Pause '+CONFIG.LOCK_SECONDS+' secondes.')}else msgSet('err','PIN incorrect. Vérifie puis recommence.');pinInput.value='';update()}
+  async function openVault(){
+    if(locked()){update();return}
+    const p=digits(pinInput.value);
+    if(p.length<4){msgSet('err','Entre ton PIN.');return}
+    openBtn.disabled=true;openBtn.textContent='Vérification…';
+    try{
+      const res=await fetch(SUPABASE_URL+'/rest/v1/rpc/digiy_verify_pin',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY},
+        body:JSON.stringify({p_phone:PHONE,p_module:MODULE,p_pin:p})
+      });
+      const data=await res.json();
+      if(Array.isArray(data)&&data[0]&&data[0].ok===true){
+        localStorage.setItem(CONFIG.SESSION_KEY,String(now()));
+        localStorage.setItem(CONFIG.ATTEMPTS_KEY,'0');
+        localStorage.removeItem(CONFIG.LOCK_KEY);
+        msgSet('ok','PIN validé. Ouverture…');
+        openBtn.textContent='✅ Coffre ouvert';
+        setTimeout(redirect,350);
+        return;
+      }
+      fail();
+    }catch(e){msgSet('err','Connexion impossible. Vérifie ta connexion.')}
+    finally{if(!valid()){openBtn.textContent='🔐 Ouvrir mon argent';update()}}
+  }
+  document.querySelectorAll('[data-num]').forEach(b=>b.addEventListener('click',()=>add(b.getAttribute('data-num'))));
+  clearBtn.onclick=clear;backBtn.onclick=back;openBtn.onclick=openVault;focusDots.onclick=()=>pinInput.focus();pinInput.oninput=update;
+  document.addEventListener('keydown',e=>{if(/^\d$/.test(e.key))add(e.key);else if(e.key==='Backspace')back();else if(e.key==='Enter')openVault()});
+  setInterval(update,500);
+  if(valid()){msgSet('ok','Session encore active. Ouverture…');setTimeout(redirect,250)}else{update();setTimeout(()=>pinInput.focus(),250)}
 })();
 </script>
 </body>
