@@ -12,7 +12,6 @@
     :root{
       --bg:#04110d;
       --card:#0b1f18;
-      --card2:#071811;
       --line:rgba(255,255,255,.10);
       --text:#f3fff7;
       --muted:rgba(243,255,247,.72);
@@ -28,6 +27,7 @@
 
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;min-height:100%}
+
     body{
       min-height:100vh;
       color:var(--text);
@@ -136,6 +136,8 @@
       border-radius:18px;
       border:1px solid rgba(255,255,255,.10);
       background:rgba(0,0,0,.16);
+      width:100%;
+      cursor:pointer;
     }
 
     .dot{
@@ -188,6 +190,7 @@
     }
 
     .key:active{transform:translateY(0)}
+
     .key.soft{
       color:#fef3c7;
       font-size:14px;
@@ -219,6 +222,7 @@
 
     .btn:hover{transform:translateY(-1px)}
     .btn:active{transform:translateY(0)}
+
     .btn.primary{
       border:none;
       background:linear-gradient(135deg,var(--green),var(--green2));
@@ -362,14 +366,16 @@
     /*
       ============================================================
       DIGIY PAY BAPTISTE — PIN
-      Fichier à déposer comme : pin.html
+      Fichier : pin.html
 
-      IMPORTANT :
-      - PIN provisoire de test : 1234
-      - Avant publication, remplace PIN_HASH_SHA256 par le hash SHA-256
-        de ton vrai PIN.
-      - Session clé : digiy_pay_baptiste_validated_at
-      - Durée : 8 heures
+      PIN provisoire : 1234
+      Hash SHA-256 de 1234 :
+      03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4
+
+      Pour changer de PIN :
+      1. Génère le hash SHA-256 du nouveau PIN.
+      2. Remplace CONFIG.PIN_HASH_SHA256.
+      3. Ne mets jamais le vrai PIN en clair dans le fichier.
       ============================================================
     */
 
@@ -380,7 +386,7 @@
 
       /*
         Hash SHA-256 du PIN provisoire "1234".
-        À remplacer avant publication.
+        À changer avant usage réel.
       */
       PIN_HASH_SHA256: "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
 
@@ -401,7 +407,9 @@
     const backBtn = document.getElementById("backBtn");
     const dotEls = Array.from(document.querySelectorAll(".dot"));
 
-    function now(){ return Date.now(); }
+    function now(){
+      return Date.now();
+    }
 
     function onlyDigits(value){
       return String(value || "").replace(/\D/g, "").slice(0, 8);
@@ -432,25 +440,55 @@
       return Math.max(1, Math.ceil((until - now()) / 1000));
     }
 
+    function safeRedirectTarget(){
+      const fallback = CONFIG.REDIRECT_AFTER_OK;
+
+      try{
+        const params = new URLSearchParams(window.location.search);
+        const next = params.get("next");
+
+        if(!next){
+          return fallback;
+        }
+
+        const url = new URL(next, window.location.origin);
+
+        if(url.origin !== window.location.origin){
+          return fallback;
+        }
+
+        if(/\/pin\.html$/i.test(url.pathname)){
+          return fallback;
+        }
+
+        return url.pathname + url.search + url.hash;
+      }catch(_){
+        return fallback;
+      }
+    }
+
     async function sha256Hex(text){
       const data = new TextEncoder().encode(String(text || ""));
       const hash = await crypto.subtle.digest("SHA-256", data);
       return Array.from(new Uint8Array(hash))
-        .map(b => b.toString(16).padStart(2, "0"))
+        .map(function(byte){
+          return byte.toString(16).padStart(2, "0");
+        })
         .join("");
     }
 
     function redirect(){
-      window.location.replace(CONFIG.REDIRECT_AFTER_OK);
+      window.location.replace(safeRedirectTarget());
     }
 
     function updateDots(){
       const value = onlyDigits(pinInput.value);
       pinInput.value = value;
-      dotEls.forEach((dot, index) => dot.classList.toggle("on", index < Math.min(value.length, 4)));
-      openBtn.disabled = value.length < 4 || !!isLocked();
 
-      const attempts = getStoredNumber(CONFIG.ATTEMPTS_KEY);
+      dotEls.forEach(function(dot, index){
+        dot.classList.toggle("on", index < Math.min(value.length, 4));
+      });
+
       const lockedUntil = isLocked();
 
       if(lockedUntil){
@@ -459,7 +497,9 @@
         return;
       }
 
+      const attempts = getStoredNumber(CONFIG.ATTEMPTS_KEY);
       attemptText.textContent = attempts ? ("Essai " + attempts + "/" + CONFIG.MAX_ATTEMPTS) : "Coffre fermé";
+      openBtn.disabled = value.length < 4;
     }
 
     function addDigit(n){
@@ -470,14 +510,13 @@
       }
 
       const current = onlyDigits(pinInput.value);
-      if(current.length >= 8) return;
+      if(current.length >= 8){
+        return;
+      }
+
       pinInput.value = current + String(n);
       setMessage("", "");
       updateDots();
-
-      if(pinInput.value.length >= 4){
-        openBtn.disabled = false;
-      }
     }
 
     function backspace(){
@@ -514,6 +553,7 @@
 
     async function openVault(){
       const lockedUntil = isLocked();
+
       if(lockedUntil){
         setMessage("err", "Pause sécurité : attends " + secondsLeft(lockedUntil) + " secondes.");
         updateDots();
@@ -521,6 +561,7 @@
       }
 
       const pin = onlyDigits(pinInput.value);
+
       if(pin.length < 4){
         setMessage("err", "Entre ton PIN pour ouvrir le coffre.");
         updateDots();
@@ -532,6 +573,7 @@
 
       try{
         const hash = await sha256Hex(pin);
+
         if(hash === CONFIG.PIN_HASH_SHA256){
           localStorage.setItem(CONFIG.SESSION_KEY, String(now()));
           localStorage.setItem(CONFIG.ATTEMPTS_KEY, "0");
@@ -539,6 +581,7 @@
 
           setMessage("ok", "PIN validé. Ouverture du cockpit…");
           openBtn.textContent = "✅ Coffre ouvert";
+
           setTimeout(redirect, 450);
           return;
         }
@@ -555,32 +598,37 @@
       }
     }
 
-    document.querySelectorAll("[data-num]").forEach(btn => {
-      btn.addEventListener("click", () => addDigit(btn.getAttribute("data-num")));
+    document.querySelectorAll("[data-num]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        addDigit(btn.getAttribute("data-num"));
+      });
     });
 
     clearBtn.addEventListener("click", clearPin);
     backBtn.addEventListener("click", backspace);
     openBtn.addEventListener("click", openVault);
 
-    focusDots.addEventListener("click", () => {
+    focusDots.addEventListener("click", function(){
       pinInput.focus();
     });
 
     pinInput.addEventListener("input", updateDots);
 
-    pinInput.addEventListener("keydown", (event) => {
+    pinInput.addEventListener("keydown", function(event){
       if(event.key === "Enter"){
         event.preventDefault();
         openVault();
       }
+
       if(event.key === "Backspace"){
         setTimeout(updateDots, 0);
       }
     });
 
-    document.addEventListener("keydown", (event) => {
-      if(event.target === pinInput) return;
+    document.addEventListener("keydown", function(event){
+      if(event.target === pinInput){
+        return;
+      }
 
       if(/^\d$/.test(event.key)){
         addDigit(event.key);
@@ -598,7 +646,9 @@
       setTimeout(redirect, 350);
     }else{
       updateDots();
-      setTimeout(() => pinInput.focus(), 250);
+      setTimeout(function(){
+        pinInput.focus();
+      }, 250);
     }
   </script>
 </body>
