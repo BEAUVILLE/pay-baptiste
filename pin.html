@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>DIGIY PAY Baptiste — PIN</title>
+  <meta name="theme-color" content="#04110d" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="description" content="Porte PIN protégée pour le cockpit personnel DIGIY PAY Baptiste." />
+
+  <style>
+    :root{
+      --bg:#04110d;
+      --card:#0b1f18;
+      --card2:#071811;
+      --line:rgba(255,255,255,.10);
+      --text:#f3fff7;
+      --muted:rgba(243,255,247,.72);
+      --green:#22c55e;
+      --green2:#16a34a;
+      --gold:#facc15;
+      --gold2:#fff3c4;
+      --danger:#f87171;
+      --shadow:0 22px 60px rgba(0,0,0,.34);
+      --radius:26px;
+      --max:520px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;min-height:100%}
+    body{
+      min-height:100vh;
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(250,204,21,.10), transparent 30%),
+        linear-gradient(180deg, var(--bg), #061710 58%, #03100b);
+      display:grid;
+      place-items:center;
+      padding:16px;
+    }
+
+    .shell{
+      width:min(var(--max),100%);
+    }
+
+    .card{
+      background:
+        radial-gradient(circle at top left, rgba(250,204,21,.10), transparent 36%),
+        linear-gradient(180deg, rgba(11,31,24,.98), rgba(7,24,17,.98));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .top{
+      padding:24px 18px 14px;
+      text-align:center;
+    }
+
+    .mark{
+      width:68px;
+      height:68px;
+      margin:0 auto 12px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--gold),var(--gold2));
+      color:#052215;
+      font-size:32px;
+      font-weight:1000;
+      box-shadow:0 16px 32px rgba(0,0,0,.22);
+    }
+
+    h1{
+      margin:0;
+      color:var(--gold);
+      font-size:29px;
+      line-height:1.08;
+      font-weight:1000;
+      letter-spacing:-.03em;
+    }
+
+    .sub{
+      margin:9px auto 0;
+      max-width:36ch;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.55;
+      font-weight:850;
+    }
+
+    .session{
+      margin:14px 18px 0;
+      padding:13px 14px;
+      border:1px solid rgba(250,204,21,.22);
+      border-radius:18px;
+      background:rgba(250,204,21,.08);
+      color:#fef3c7;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .panel{
+      margin:16px 18px 18px;
+      padding:16px;
+      border-radius:22px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.035);
+    }
+
+    .label{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+      color:#bbf7d0;
+      font-size:12px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .dots{
+      min-height:58px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:11px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.16);
+    }
+
+    .dot{
+      width:15px;
+      height:15px;
+      border-radius:999px;
+      border:2px solid rgba(243,255,247,.36);
+      background:transparent;
+    }
+
+    .dot.on{
+      border-color:var(--gold);
+      background:var(--gold);
+      box-shadow:0 0 0 5px rgba(250,204,21,.10);
+    }
+
+    .pin-input{
+      position:absolute;
+      opacity:0;
+      pointer-events:none;
+      width:1px;
+      height:1px;
+    }
+
+    .keypad{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .key{
+      min-height:58px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.055);
+      color:var(--text);
+      font-size:22px;
+      font-weight:1000;
+      cursor:pointer;
+      font-family:inherit;
+      transition:transform .14s ease, background .14s ease, border-color .14s ease, opacity .14s ease;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .key:hover{
+      transform:translateY(-1px);
+      background:rgba(255,255,255,.085);
+      border-color:rgba(250,204,21,.30);
+    }
+
+    .key:active{transform:translateY(0)}
+    .key.soft{
+      color:#fef3c7;
+      font-size:14px;
+      letter-spacing:.02em;
+    }
+
+    .actions{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+
+    .btn{
+      min-height:54px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      font-size:15px;
+      font-weight:1000;
+      font-family:inherit;
+      cursor:pointer;
+      text-decoration:none;
+      transition:transform .14s ease, opacity .14s ease;
+    }
+
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn.primary{
+      border:none;
+      background:linear-gradient(135deg,var(--green),var(--green2));
+      color:#052215;
+    }
+
+    .btn[disabled]{
+      opacity:.48;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .msg{
+      display:none;
+      margin-top:12px;
+      padding:12px 13px;
+      border-radius:16px;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:950;
+      text-align:center;
+    }
+
+    .msg.ok{
+      display:block;
+      border:1px solid rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
+      color:#bbf7d0;
+    }
+
+    .msg.err{
+      display:block;
+      border:1px solid rgba(248,113,113,.25);
+      background:rgba(248,113,113,.10);
+      color:#fecaca;
+    }
+
+    .foot{
+      padding:0 18px 20px;
+      color:rgba(243,255,247,.58);
+      font-size:12px;
+      line-height:1.6;
+      font-weight:800;
+      text-align:center;
+    }
+
+    .tiny{
+      margin-top:12px;
+      color:rgba(243,255,247,.52);
+      font-size:11px;
+      line-height:1.45;
+      font-weight:800;
+      text-align:center;
+    }
+
+    @media(max-width:420px){
+      body{padding:10px}
+      h1{font-size:26px}
+      .key{min-height:56px}
+      .panel{margin-left:12px;margin-right:12px}
+      .session{margin-left:12px;margin-right:12px}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      *{scroll-behavior:auto!important;transition:none!important}
+    }
+  </style>
+</head>
+
+<body>
+  <main class="shell">
+    <section class="card" aria-labelledby="title">
+      <div class="top">
+        <div class="mark">₣</div>
+        <h1 id="title">DIGIY PAY<br>Baptiste</h1>
+        <div class="sub">
+          Coffre personnel. PIN obligatoire avant d’ouvrir le cockpit PRO / PERSO.
+        </div>
+      </div>
+
+      <div class="session">
+        Session protégée pendant <b>8 heures</b>. Après ce délai, le PIN est redemandé.
+      </div>
+
+      <div class="panel">
+        <div class="label">
+          <span>Entrer le PIN</span>
+          <span id="attemptText">Coffre fermé</span>
+        </div>
+
+        <input
+          id="pinInput"
+          class="pin-input"
+          type="password"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="8"
+          aria-label="PIN DIGIY PAY Baptiste"
+        />
+
+        <button class="dots" id="focusDots" type="button" aria-label="Saisir le PIN">
+          <span class="dot" data-dot="0"></span>
+          <span class="dot" data-dot="1"></span>
+          <span class="dot" data-dot="2"></span>
+          <span class="dot" data-dot="3"></span>
+        </button>
+
+        <div class="keypad" aria-label="Clavier PIN">
+          <button class="key" type="button" data-num="1">1</button>
+          <button class="key" type="button" data-num="2">2</button>
+          <button class="key" type="button" data-num="3">3</button>
+          <button class="key" type="button" data-num="4">4</button>
+          <button class="key" type="button" data-num="5">5</button>
+          <button class="key" type="button" data-num="6">6</button>
+          <button class="key" type="button" data-num="7">7</button>
+          <button class="key" type="button" data-num="8">8</button>
+          <button class="key" type="button" data-num="9">9</button>
+          <button class="key soft" type="button" id="clearBtn">Effacer</button>
+          <button class="key" type="button" data-num="0">0</button>
+          <button class="key soft" type="button" id="backBtn">⌫</button>
+        </div>
+
+        <div class="actions">
+          <button id="openBtn" class="btn primary" type="button" disabled>🔐 Ouvrir mon argent</button>
+        </div>
+
+        <div id="msg" class="msg" aria-live="polite"></div>
+
+        <div class="tiny">
+          Protection légère côté navigateur pour GitHub Pages. Le vrai coffre robuste peut venir plus tard avec Supabase/Auth.
+        </div>
+      </div>
+
+      <div class="foot">
+        DIGIY PAY Baptiste · PRO / PERSO · le patron voit, retrouve, décide.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /*
+      ============================================================
+      DIGIY PAY BAPTISTE — PIN
+      Fichier à déposer comme : pin.html
+
+      IMPORTANT :
+      - PIN provisoire de test : 1234
+      - Avant publication, remplace PIN_HASH_SHA256 par le hash SHA-256
+        de ton vrai PIN.
+      - Session clé : digiy_pay_baptiste_validated_at
+      - Durée : 8 heures
+      ============================================================
+    */
+
+    const CONFIG = {
+      REDIRECT_AFTER_OK: "./index.html",
+      SESSION_KEY: "digiy_pay_baptiste_validated_at",
+      SESSION_HOURS: 8,
+
+      /*
+        Hash SHA-256 du PIN provisoire "1234".
+        À remplacer avant publication.
+      */
+      PIN_HASH_SHA256: "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+
+      MAX_ATTEMPTS: 5,
+      LOCK_SECONDS: 30,
+      LOCK_KEY: "digiy_pay_baptiste_pin_lock_until",
+      ATTEMPTS_KEY: "digiy_pay_baptiste_pin_attempts"
+    };
+
+    const SESSION_MS = CONFIG.SESSION_HOURS * 60 * 60 * 1000;
+
+    const pinInput = document.getElementById("pinInput");
+    const openBtn = document.getElementById("openBtn");
+    const msg = document.getElementById("msg");
+    const focusDots = document.getElementById("focusDots");
+    const attemptText = document.getElementById("attemptText");
+    const clearBtn = document.getElementById("clearBtn");
+    const backBtn = document.getElementById("backBtn");
+    const dotEls = Array.from(document.querySelectorAll(".dot"));
+
+    function now(){ return Date.now(); }
+
+    function onlyDigits(value){
+      return String(value || "").replace(/\D/g, "").slice(0, 8);
+    }
+
+    function getStoredNumber(key){
+      const n = Number(localStorage.getItem(key) || "0");
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function setMessage(type, text){
+      msg.className = "msg " + (type || "");
+      msg.textContent = text || "";
+      msg.style.display = text ? "block" : "none";
+    }
+
+    function isSessionValid(){
+      const ts = getStoredNumber(CONFIG.SESSION_KEY);
+      return ts > 0 && (now() - ts) < SESSION_MS;
+    }
+
+    function isLocked(){
+      const until = getStoredNumber(CONFIG.LOCK_KEY);
+      return until > now() ? until : 0;
+    }
+
+    function secondsLeft(until){
+      return Math.max(1, Math.ceil((until - now()) / 1000));
+    }
+
+    async function sha256Hex(text){
+      const data = new TextEncoder().encode(String(text || ""));
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    function redirect(){
+      window.location.replace(CONFIG.REDIRECT_AFTER_OK);
+    }
+
+    function updateDots(){
+      const value = onlyDigits(pinInput.value);
+      pinInput.value = value;
+      dotEls.forEach((dot, index) => dot.classList.toggle("on", index < Math.min(value.length, 4)));
+      openBtn.disabled = value.length < 4 || !!isLocked();
+
+      const attempts = getStoredNumber(CONFIG.ATTEMPTS_KEY);
+      const lockedUntil = isLocked();
+
+      if(lockedUntil){
+        attemptText.textContent = "Pause " + secondsLeft(lockedUntil) + " s";
+        openBtn.disabled = true;
+        return;
+      }
+
+      attemptText.textContent = attempts ? ("Essai " + attempts + "/" + CONFIG.MAX_ATTEMPTS) : "Coffre fermé";
+    }
+
+    function addDigit(n){
+      if(isLocked()){
+        updateDots();
+        setMessage("err", "Patiente quelques secondes avant de réessayer.");
+        return;
+      }
+
+      const current = onlyDigits(pinInput.value);
+      if(current.length >= 8) return;
+      pinInput.value = current + String(n);
+      setMessage("", "");
+      updateDots();
+
+      if(pinInput.value.length >= 4){
+        openBtn.disabled = false;
+      }
+    }
+
+    function backspace(){
+      pinInput.value = onlyDigits(pinInput.value).slice(0, -1);
+      setMessage("", "");
+      updateDots();
+    }
+
+    function clearPin(){
+      pinInput.value = "";
+      setMessage("", "");
+      updateDots();
+      pinInput.focus();
+    }
+
+    function registerFailure(){
+      const attempts = getStoredNumber(CONFIG.ATTEMPTS_KEY) + 1;
+      localStorage.setItem(CONFIG.ATTEMPTS_KEY, String(attempts));
+
+      if(attempts >= CONFIG.MAX_ATTEMPTS){
+        const until = now() + CONFIG.LOCK_SECONDS * 1000;
+        localStorage.setItem(CONFIG.LOCK_KEY, String(until));
+        localStorage.setItem(CONFIG.ATTEMPTS_KEY, "0");
+        setMessage("err", "Trop d’essais. Pause " + CONFIG.LOCK_SECONDS + " secondes.");
+        clearPin();
+        updateDots();
+        return;
+      }
+
+      setMessage("err", "PIN incorrect. Vérifie puis recommence.");
+      pinInput.value = "";
+      updateDots();
+    }
+
+    async function openVault(){
+      const lockedUntil = isLocked();
+      if(lockedUntil){
+        setMessage("err", "Pause sécurité : attends " + secondsLeft(lockedUntil) + " secondes.");
+        updateDots();
+        return;
+      }
+
+      const pin = onlyDigits(pinInput.value);
+      if(pin.length < 4){
+        setMessage("err", "Entre ton PIN pour ouvrir le coffre.");
+        updateDots();
+        return;
+      }
+
+      openBtn.disabled = true;
+      openBtn.textContent = "Vérification…";
+
+      try{
+        const hash = await sha256Hex(pin);
+        if(hash === CONFIG.PIN_HASH_SHA256){
+          localStorage.setItem(CONFIG.SESSION_KEY, String(now()));
+          localStorage.setItem(CONFIG.ATTEMPTS_KEY, "0");
+          localStorage.removeItem(CONFIG.LOCK_KEY);
+
+          setMessage("ok", "PIN validé. Ouverture du cockpit…");
+          openBtn.textContent = "✅ Coffre ouvert";
+          setTimeout(redirect, 450);
+          return;
+        }
+
+        registerFailure();
+      }catch(e){
+        console.error(e);
+        setMessage("err", "Vérification impossible sur ce navigateur.");
+      }finally{
+        if(!isSessionValid()){
+          openBtn.textContent = "🔐 Ouvrir mon argent";
+          updateDots();
+        }
+      }
+    }
+
+    document.querySelectorAll("[data-num]").forEach(btn => {
+      btn.addEventListener("click", () => addDigit(btn.getAttribute("data-num")));
+    });
+
+    clearBtn.addEventListener("click", clearPin);
+    backBtn.addEventListener("click", backspace);
+    openBtn.addEventListener("click", openVault);
+
+    focusDots.addEventListener("click", () => {
+      pinInput.focus();
+    });
+
+    pinInput.addEventListener("input", updateDots);
+
+    pinInput.addEventListener("keydown", (event) => {
+      if(event.key === "Enter"){
+        event.preventDefault();
+        openVault();
+      }
+      if(event.key === "Backspace"){
+        setTimeout(updateDots, 0);
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if(event.target === pinInput) return;
+
+      if(/^\d$/.test(event.key)){
+        addDigit(event.key);
+      }else if(event.key === "Backspace"){
+        backspace();
+      }else if(event.key === "Enter"){
+        openVault();
+      }
+    });
+
+    setInterval(updateDots, 500);
+
+    if(isSessionValid()){
+      setMessage("ok", "Session encore active. Ouverture du cockpit…");
+      setTimeout(redirect, 350);
+    }else{
+      updateDots();
+      setTimeout(() => pinInput.focus(), 250);
+    }
+  </script>
+</body>
+</html>
