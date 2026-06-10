@@ -1,1 +1,266 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>ABOS Ready</title><style>body{margin:0;background:#06140f;color:#fff8e8;font-family:system-ui,Arial,sans-serif;font-weight:850}.app{max-width:1000px;margin:auto;padding:18px 18px 110px}.top,.box{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:18px;margin-bottom:14px}.hero{background:linear-gradient(135deg,#fff7df,#ead29a);color:#142016;border-radius:22px;padding:18px}.hero b{display:block;font-size:44px}.grid{display:grid;grid-template-columns:360px 1fr;gap:14px}h1,h2{margin:0 0 12px;color:#f4d27a}input,select,textarea,button{font:inherit;font-weight:900}input,select,textarea{width:100%;min-height:52px;border:0;border-radius:14px;padding:12px;margin:5px 0 10px;color:#172016}button,a.btn{min-height:50px;border:0;border-radius:16px;padding:12px;background:#fff;color:#172016;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-weight:1000}.green{background:#22c55e;color:#052215}.gold{background:#f4d27a;color:#142016}.danger{background:#ffedd5;color:#9a3412}.row{background:#fff7df;color:#172016;border-radius:20px;padding:15px;margin-bottom:10px}.name{font-size:24px;font-weight:1100}.meta{color:#6b5a3b;margin-top:6px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.nav{position:fixed;left:0;right:0;bottom:0;background:rgba(2,8,6,.96);padding:8px}.nav div{max-width:1000px;margin:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.nav a,.nav button{color:#fff;background:rgba(255,255,255,.09)}@media(max-width:760px){.app{padding:0 12px 105px}.top{border-radius:0;margin-left:-12px;margin-right:-12px}.grid{grid-template-columns:1fr}.hero b{font-size:34px}.nav div{gap:5px}.nav a,.nav button{font-size:11px;padding:8px}}</style></head><body><div class="app"><section class="top"><a class="btn" href="./index.html?v=retour-abos">‹ PAY</a><h1>ABOS Ready</h1><div class="hero"><small>Total ABOS du mois</small><b id="total">0 F</b><p>Wave reçoit. SMS confirme. PAY trace dans le module choisi.</p></div></section><div class="grid"><section class="box"><h2>Ajouter un abonné</h2><p>Pour un test DRIVER, choisis DRIVER dans Module puis clique Créer TEST ABOS.</p><form id="f"><input id="id" type="hidden"><label>Nom</label><input id="name" required placeholder="Test ABOS"><label>Téléphone optionnel</label><input id="phone" placeholder="+221…"><label>Module</label><select id="module"><option>ABOS</option><option>BUILD</option><option>LOC</option><option>DRIVER</option><option>MARKET</option><option>POS</option><option>RESA</option><option>EXPLORE</option><option>JOBS</option></select><label>Statut</label><select id="status"><option value="active">Actif</option><option value="wait">À relancer</option><option value="stop">Suspendu</option></select><label>Note</label><textarea id="note"></textarea><button class="green" type="submit">Garder l’abonné</button><button class="gold" id="test" type="button">Créer TEST ABOS</button></form><hr><h2>Encaisser</h2><form id="pf"><select id="sub"></select><input id="amount" type="number" min="0" step="1" placeholder="Montant"><select id="proof"><option>Wave reçu</option><option>SMS reçu</option><option>Note manuelle</option></select><button class="green" type="submit">Tracer dans la caisse</button></form><p id="msg"></p></section><section class="box"><h2>Répertoire ABOS</h2><input id="search" placeholder="Rechercher"><div id="list"></div></section></div></div><nav class="nav"><div><a class="btn" href="./index.html?v=retour-pay">PAY</a><button id="goAdd">+ Abonné</button><button id="goPay">Encaisser</button><button id="cleanTests">🧹 Tests</button><button id="export">Export</button></div></nav><script>(function(){'use strict';const SK='digiy_pay_baptiste_validated_at',MS=8*60*60*1000,ts=Number(localStorage.getItem(SK)||0);if(!(ts&&Date.now()-ts<MS)){location.replace('./pin.html?next=abos-ready.html');return}const KEY='digiy_pay_baptiste_reel_v2';const $=x=>document.getElementById(x);function uid(p){return p+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4)}function base(){return{settings:{pocket:'pro'},activities:[{id:'abos',pocket:'pro',name:'ABOS'}],labels:['Abonnement'],people:[],contacts:[],subscribers:[],movements:[]}}function load(){try{return Object.assign(base(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){return base()}}let st=load();if(!Array.isArray(st.subscribers))st.subscribers=[];if(!Array.isArray(st.contacts))st.contacts=[];if(!st.subscribers.length&&st.contacts.length){st.subscribers=st.contacts.map(c=>({id:c.id||uid('s'),name:c.name||'Abonné',phone:c.phone||'',module:c.module||'ABOS',status:'active',note:c.note||''}))}if(!Array.isArray(st.movements))st.movements=[];if(!Array.isArray(st.labels))st.labels=[];if(!st.labels.includes('Abonnement'))st.labels.push('Abonnement');function save(){localStorage.setItem(KEY,JSON.stringify(st))}function esc(v){return String(v||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}function fmt(n){return Math.round(Number(n||0)).toLocaleString('fr-FR').replace(/\u202f/g,' ')+' F'}function today(){return new Date().toISOString().slice(0,10)}function isAboMove(m){return m.label==='Abonnement'&&(m.abosSubscriberId||m.abosModule||m.activity==='ABOS'||String(m.note||'').indexOf('ABOS')>=0)}function total(){const ym=today().slice(0,7);return st.movements.filter(m=>isAboMove(m)&&String(m.ts||'').slice(0,7)===ym).reduce((a,m)=>a+Number(m.amount||0),0)}function addSub(o){const s={id:o.id||uid('s'),name:(o.name||'Test ABOS').trim(),phone:(o.phone||'').trim(),module:o.module||'ABOS',status:o.status||'active',note:(o.note||'').trim()};const i=st.subscribers.findIndex(x=>x.id===s.id);if(i>=0)st.subscribers[i]=s;else st.subscribers.push(s);return s}function linkedTo(s,m){return m.label==='Abonnement'&&m.abosSubscriberId===s.id}function isTestSub(s){return /^test\b/i.test(String(s.name||'').trim())}function render(){save();$('total').textContent=fmt(total());$('sub').innerHTML='<option value="__free__">TEST / Encaissement libre</option>'+st.subscribers.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' — '+esc(s.module)+'</option>').join('');const q=String($('search').value||'').toLowerCase();const arr=st.subscribers.filter(s=>[s.name,s.phone,s.module,s.note].join(' ').toLowerCase().includes(q));$('list').innerHTML=arr.length?arr.map(s=>{const sum=st.movements.filter(m=>linkedTo(s,m)).reduce((a,m)=>a+Number(m.amount||0),0);return '<div class="row"><div class="name">'+esc(s.name)+'</div><div class="meta">'+esc(s.phone||'Téléphone non renseigné')+' · module '+esc(s.module)+'<br>Total encaissé : '+fmt(sum)+(s.note?'<br>'+esc(s.note):'')+'</div><div class="actions"><button data-pay="'+esc(s.id)+'" class="green">Encaisser</button><button data-edit="'+esc(s.id)+'">Modifier</button><button data-wait="'+esc(s.id)+'" class="gold">Relancer</button><button data-del="'+esc(s.id)+'" class="danger">Supprimer</button></div></div>'}).join(''):'<div class="row">Aucun abonné. Choisis un module puis clique “Créer TEST ABOS”.</div>'}function reset(){$('f').reset();$('id').value=''}$('f').onsubmit=e=>{e.preventDefault();addSub({id:$('id').value,name:$('name').value,phone:$('phone').value,module:$('module').value,status:$('status').value,note:$('note').value});reset();render()};$('test').onclick=()=>{const s=addSub({name:'Test '+$('module').value,module:$('module').value,status:'active',note:'Test terrain'});render();$('sub').value=s.id;$('amount').focus()};$('pf').onsubmit=e=>{e.preventDefault();let s=st.subscribers.find(x=>x.id===$('sub').value);if(!s)s=addSub({name:'Test '+$('module').value,module:$('module').value,status:'active',note:'Encaissement libre'});const amount=Math.round(Number($('amount').value||0));if(amount<=0){alert('Pose un montant propre.');return}st.movements.push({id:uid('m'),pocket:'pro',type:'income',mode:'Wave',amount:amount,label:'Abonnement',activity:s.module||'ABOS',person:s.name,note:'ABOS · '+$('proof').value,abosSubscriberId:s.id,abosModule:s.module||'ABOS',ts:new Date().toISOString()});if(!st.people.includes(s.name))st.people.push(s.name);$('amount').value='';$('msg').textContent='Paiement ABOS tracé dans la caisse et dans le module '+(s.module||'ABOS')+'.';render()};$('list').onclick=e=>{const b=e.target;if(b.dataset.pay){$('sub').value=b.dataset.pay;$('amount').focus();scrollTo({top:0,behavior:'smooth'})}if(b.dataset.edit){const s=st.subscribers.find(x=>x.id===b.dataset.edit);if(s){$('id').value=s.id;$('name').value=s.name;$('phone').value=s.phone;$('module').value=s.module;$('status').value=s.status;$('note').value=s.note;scrollTo({top:0,behavior:'smooth'})}}if(b.dataset.wait){const s=st.subscribers.find(x=>x.id===b.dataset.wait);if(s){s.status='wait';render()}}if(b.dataset.del){const s=st.subscribers.find(x=>x.id===b.dataset.del);if(s&&confirm('Supprimer cet abonné ?')){const linked=st.movements.filter(m=>linkedTo(s,m));if(linked.length&&confirm('Supprimer aussi les paiements de CET abonné ? OK pour un test.')){st.movements=st.movements.filter(m=>!linkedTo(s,m))}st.subscribers=st.subscribers.filter(x=>x.id!==s.id);render()}}};$('search').oninput=render;$('goAdd').onclick=()=>{$('name').focus();scrollTo({top:0,behavior:'smooth'})};$('goPay').onclick=()=>{$('amount').focus();scrollTo({top:0,behavior:'smooth'})};$('cleanTests').onclick=()=>{const ids=new Set(st.subscribers.filter(isTestSub).map(s=>s.id));if(!ids.size){alert('Aucun test à nettoyer.');return}if(confirm('Nettoyer uniquement les abonnés TEST et leurs paiements liés ?')){st.movements=st.movements.filter(m=>!ids.has(m.abosSubscriberId));st.subscribers=st.subscribers.filter(s=>!ids.has(s.id));render();$('msg').textContent='Tests nettoyés. Les vrais abonnés restent.'}};$('export').onclick=()=>{const blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='digiy-pay-abos-'+today()+'.json';a.click();URL.revokeObjectURL(u)};render()})();</script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <script src="./guard.js?v=pay-baptiste-guard-20260610-3"></script>
+  <title>DIGIY PAY Baptiste — ABOS Ready</title>
+  <style>
+    :root{--bg:#06140f;--ink:#172016;--gold:#f4d27a;--green:#22c55e;--soft:#fff7df;--line:rgba(255,255,255,.12);--max:1000px}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;min-height:100%}
+    body{background:radial-gradient(circle at top left,rgba(244,210,122,.13),transparent 32%),linear-gradient(180deg,var(--bg),#020806);color:#fff8e8;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-weight:850;-webkit-font-smoothing:antialiased}
+    input,select,textarea,button{font:inherit;font-weight:900}
+    button,a.btn{cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .app{max-width:var(--max);margin:auto;padding:18px 18px 112px}
+    .top,.box{background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:24px;padding:18px;margin-bottom:14px;box-shadow:0 18px 42px rgba(0,0,0,.22)}
+    .topline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+    .hero{background:linear-gradient(135deg,#fff7df,#ead29a);color:#142016;border-radius:22px;padding:18px;border:1px solid rgba(255,255,255,.34)}
+    .hero small{display:block;text-transform:uppercase;letter-spacing:.08em;color:#6b5a3b;font-weight:1000}
+    .hero b{display:block;font-size:44px;line-height:1.05;margin-top:3px;color:#142016;font-weight:1100}
+    .hero p{margin:10px 0 0;color:#4f4227;font-weight:950;line-height:1.35}
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:14px}
+    h1,h2{margin:0 0 12px;color:var(--gold);font-weight:1100;line-height:1.1}
+    h1{font-size:30px}
+    h2{font-size:21px}
+    p{line-height:1.45}
+    label{display:block;margin:9px 0 4px;color:rgba(255,255,255,.78);font-size:12px;text-transform:uppercase;letter-spacing:.07em;font-weight:1000}
+    input,select,textarea{width:100%;min-height:52px;border:0;border-radius:14px;padding:12px;margin:0 0 10px;color:var(--ink);background:#fff;outline:none}
+    textarea{min-height:92px;resize:vertical}
+    button,a.btn{min-height:50px;border:0;border-radius:16px;padding:12px;background:#fff;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-weight:1000;gap:6px}
+    .green{background:linear-gradient(135deg,var(--green),#bbf7d0);color:#052215}
+    .gold{background:linear-gradient(135deg,var(--gold),#fff2bf);color:#142016}
+    .danger{background:#ffedd5;color:#9a3412}
+    .muted{color:rgba(255,255,255,.70);font-size:13px;font-weight:900}
+    .row{background:linear-gradient(135deg,#fff7df,#f4e4bd);color:var(--ink);border-radius:20px;padding:15px;margin-bottom:10px;border:1px solid rgba(78,56,25,.14)}
+    .name{font-size:24px;font-weight:1100;color:var(--ink);line-height:1.1}
+    .meta{color:#6b5a3b;margin-top:6px;font-weight:950;line-height:1.35}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .actions button,.actions a{min-height:42px;border-radius:14px;padding:9px 11px;font-size:13px}
+    hr{border:0;border-top:1px solid rgba(255,255,255,.16);margin:18px 0}
+    #msg{min-height:24px;color:#bbf7d0;font-weight:1000;margin:10px 0 0}
+    .nav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(2,8,6,0),rgba(2,8,6,.97) 28%);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))}
+    .nav div{max-width:var(--max);margin:auto;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;background:rgba(7,21,15,.94);border:1px solid rgba(255,255,255,.10);border-radius:22px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+    .nav a,.nav button{color:#fff;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.08);font-size:12px;min-height:54px;text-align:center;padding:8px;display:grid;place-items:center;line-height:1.1}
+    .nav a:first-child{background:linear-gradient(135deg,var(--gold),#fff2bf);color:#142016;border:none}
+    .nav button[data-digiy-logout]{background:#ffedd5;color:#9a3412;border:none}
+    @media(max-width:760px){.app{padding:0 12px 108px}.top{border-radius:0;margin-left:-12px;margin-right:-12px}.grid{grid-template-columns:1fr}.hero b{font-size:34px}.topline{align-items:flex-start}.topline h1{font-size:25px}.nav div{gap:5px;padding:7px}.nav a,.nav button{font-size:10px;padding:7px;min-height:52px}.actions button{flex:1 1 auto}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <section class="top">
+    <div class="topline">
+      <a class="btn gold" href="./index.html?v=retour-abos">‹ PAY</a>
+      <h1>ABOS Ready</h1>
+      <button class="btn danger" data-digiy-logout type="button">Fermer session</button>
+    </div>
+    <div class="hero">
+      <small>Total ABOS du mois</small>
+      <b id="total">0 F</b>
+      <p>Wave reçoit. SMS confirme. PAY trace dans le module choisi.</p>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="box">
+      <h2>Ajouter un abonné</h2>
+      <p class="muted">Pour un test DRIVER, choisis DRIVER dans Module puis clique Créer TEST ABOS.</p>
+      <form id="f">
+        <input id="id" type="hidden">
+        <label>Nom</label>
+        <input id="name" required placeholder="Test ABOS">
+        <label>Téléphone optionnel</label>
+        <input id="phone" placeholder="+221…">
+        <label>Module</label>
+        <select id="module">
+          <option>ABOS</option>
+          <option>BUILD</option>
+          <option>LOC</option>
+          <option>DRIVER</option>
+          <option>MARKET</option>
+          <option>POS</option>
+          <option>RESA</option>
+          <option>EXPLORE</option>
+          <option>JOBS</option>
+          <option>RÉSEAU</option>
+          <option>NDIMBAL</option>
+        </select>
+        <label>Statut</label>
+        <select id="status">
+          <option value="active">Actif</option>
+          <option value="wait">À relancer</option>
+          <option value="stop">Suspendu</option>
+        </select>
+        <label>Note</label>
+        <textarea id="note" placeholder="Note courte terrain"></textarea>
+        <button class="green" type="submit">Garder l’abonné</button>
+        <button class="gold" id="test" type="button">Créer TEST ABOS</button>
+      </form>
+
+      <hr>
+
+      <h2>Encaisser</h2>
+      <form id="pf">
+        <label>Abonné</label>
+        <select id="sub"></select>
+        <label>Montant</label>
+        <input id="amount" type="number" inputmode="numeric" min="0" step="1" placeholder="Montant">
+        <label>Preuve</label>
+        <select id="proof">
+          <option>Wave reçu</option>
+          <option>SMS reçu</option>
+          <option>Note manuelle</option>
+        </select>
+        <button class="green" type="submit">Tracer dans la caisse</button>
+      </form>
+      <p id="msg"></p>
+    </section>
+
+    <section class="box">
+      <h2>Répertoire ABOS</h2>
+      <input id="search" placeholder="Rechercher : nom, téléphone, module…">
+      <div id="list"></div>
+    </section>
+  </div>
+</div>
+
+<nav class="nav">
+  <div>
+    <a class="btn" href="./index.html?v=retour-pay">PAY</a>
+    <button id="goAdd" type="button">+ Abonné</button>
+    <button id="goPay" type="button">Encaisser</button>
+    <button id="cleanTests" type="button">🧹 Tests</button>
+    <button id="export" type="button">Export</button>
+    <button data-digiy-logout type="button">Fermer</button>
+  </div>
+</nav>
+
+<script>
+(function(){
+  'use strict';
+
+  // Ceinture locale en plus du guard.js chargé dans le head.
+  const SK='digiy_pay_baptiste_validated_at';
+  const MS=8*60*60*1000;
+  const ts=Number(localStorage.getItem(SK)||0);
+  if(!(ts&&Number.isFinite(ts)&&Date.now()-ts<MS)){
+    location.replace('./pin.html?next=abos-ready.html');
+    return;
+  }
+
+  const KEY='digiy_pay_baptiste_reel_v2';
+  const $=x=>document.getElementById(x);
+
+  function uid(p){return p+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4)}
+  function base(){return{settings:{pocket:'pro'},activities:[{id:'abos',pocket:'pro',name:'ABOS'}],labels:['Abonnement'],people:[],contacts:[],subscribers:[],movements:[]}}
+  function load(){try{return Object.assign(base(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){return base()}}
+
+  let st=load();
+  if(!Array.isArray(st.subscribers))st.subscribers=[];
+  if(!Array.isArray(st.contacts))st.contacts=[];
+  if(!st.subscribers.length&&st.contacts.length){
+    st.subscribers=st.contacts.map(c=>({id:c.id||uid('s'),name:c.name||'Abonné',phone:c.phone||'',module:c.module||'ABOS',status:'active',note:c.note||''}));
+  }
+  if(!Array.isArray(st.movements))st.movements=[];
+  if(!Array.isArray(st.labels))st.labels=[];
+  if(!Array.isArray(st.people))st.people=[];
+  if(!st.labels.includes('Abonnement'))st.labels.push('Abonnement');
+
+  function save(){localStorage.setItem(KEY,JSON.stringify(st))}
+  function esc(v){return String(v||'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}
+  function fmt(n){return Math.round(Number(n||0)).toLocaleString('fr-FR').replace(/\u202f/g,' ')+' F'}
+  function today(){return new Date().toISOString().slice(0,10)}
+  function isAboMove(m){return m.label==='Abonnement'&&(m.abosSubscriberId||m.abosModule||m.activity==='ABOS'||String(m.note||'').indexOf('ABOS')>=0)}
+  function total(){const ym=today().slice(0,7);return st.movements.filter(m=>isAboMove(m)&&String(m.ts||'').slice(0,7)===ym).reduce((a,m)=>a+Number(m.amount||0),0)}
+  function addSub(o){
+    const s={id:o.id||uid('s'),name:(o.name||'Test ABOS').trim(),phone:(o.phone||'').trim(),module:o.module||'ABOS',status:o.status||'active',note:(o.note||'').trim()};
+    const i=st.subscribers.findIndex(x=>x.id===s.id);
+    if(i>=0)st.subscribers[i]=s;else st.subscribers.push(s);
+    return s;
+  }
+  function linkedTo(s,m){return m.label==='Abonnement'&&m.abosSubscriberId===s.id}
+  function isTestSub(s){return /^test\b/i.test(String(s.name||'').trim())}
+
+  function render(){
+    save();
+    $('total').textContent=fmt(total());
+    $('sub').innerHTML='<option value="__free__">TEST / Encaissement libre</option>'+st.subscribers.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+' — '+esc(s.module)+'</option>').join('');
+    const q=String($('search').value||'').toLowerCase();
+    const arr=st.subscribers.filter(s=>[s.name,s.phone,s.module,s.note].join(' ').toLowerCase().includes(q));
+    $('list').innerHTML=arr.length?arr.map(s=>{
+      const sum=st.movements.filter(m=>linkedTo(s,m)).reduce((a,m)=>a+Number(m.amount||0),0);
+      return '<div class="row"><div class="name">'+esc(s.name)+'</div><div class="meta">'+esc(s.phone||'Téléphone non renseigné')+' · module '+esc(s.module)+'<br>Total encaissé : '+fmt(sum)+(s.note?'<br>'+esc(s.note):'')+'</div><div class="actions"><button data-pay="'+esc(s.id)+'" class="green" type="button">Encaisser</button><button data-edit="'+esc(s.id)+'" type="button">Modifier</button><button data-wait="'+esc(s.id)+'" class="gold" type="button">Relancer</button><button data-del="'+esc(s.id)+'" class="danger" type="button">Supprimer</button></div></div>';
+    }).join(''):'<div class="row">Aucun abonné. Choisis un module puis clique “Créer TEST ABOS”.</div>';
+  }
+
+  function reset(){ $('f').reset(); $('id').value=''; }
+
+  $('f').onsubmit=e=>{
+    e.preventDefault();
+    addSub({id:$('id').value,name:$('name').value,phone:$('phone').value,module:$('module').value,status:$('status').value,note:$('note').value});
+    reset();
+    render();
+    $('msg').textContent='Abonné gardé.';
+  };
+
+  $('test').onclick=()=>{
+    const s=addSub({name:'Test '+$('module').value,module:$('module').value,status:'active',note:'Test terrain'});
+    render();
+    $('sub').value=s.id;
+    $('amount').focus();
+    $('msg').textContent='Test créé. Pose le montant pour encaisser.';
+  };
+
+  $('pf').onsubmit=e=>{
+    e.preventDefault();
+    let s=st.subscribers.find(x=>x.id===$('sub').value);
+    if(!s)s=addSub({name:'Test '+$('module').value,module:$('module').value,status:'active',note:'Encaissement libre'});
+    const amount=Math.round(Number($('amount').value||0));
+    if(amount<=0){alert('Pose un montant propre.');return}
+    st.movements.push({id:uid('m'),pocket:'pro',type:'income',mode:'Wave',amount:amount,label:'Abonnement',activity:s.module||'ABOS',person:s.name,note:'ABOS · '+$('proof').value,abosSubscriberId:s.id,abosModule:s.module||'ABOS',ts:new Date().toISOString()});
+    if(!st.people.includes(s.name))st.people.push(s.name);
+    $('amount').value='';
+    $('msg').textContent='Paiement ABOS tracé dans la caisse et dans le module '+(s.module||'ABOS')+'.';
+    render();
+  };
+
+  $('list').onclick=e=>{
+    const b=e.target;
+    if(b.dataset.pay){$('sub').value=b.dataset.pay;$('amount').focus();scrollTo({top:0,behavior:'smooth'})}
+    if(b.dataset.edit){const s=st.subscribers.find(x=>x.id===b.dataset.edit);if(s){$('id').value=s.id;$('name').value=s.name;$('phone').value=s.phone;$('module').value=s.module;$('status').value=s.status;$('note').value=s.note;scrollTo({top:0,behavior:'smooth'})}}
+    if(b.dataset.wait){const s=st.subscribers.find(x=>x.id===b.dataset.wait);if(s){s.status='wait';render()}}
+    if(b.dataset.del){const s=st.subscribers.find(x=>x.id===b.dataset.del);if(s&&confirm('Supprimer cet abonné ?')){const linked=st.movements.filter(m=>linkedTo(s,m));if(linked.length&&confirm('Supprimer aussi les paiements de CET abonné ? OK pour un test.')){st.movements=st.movements.filter(m=>!linkedTo(s,m))}st.subscribers=st.subscribers.filter(x=>x.id!==s.id);render()}}
+  };
+
+  $('search').oninput=render;
+  $('goAdd').onclick=()=>{$('name').focus();scrollTo({top:0,behavior:'smooth'})};
+  $('goPay').onclick=()=>{$('amount').focus();scrollTo({top:0,behavior:'smooth'})};
+  $('cleanTests').onclick=()=>{
+    const ids=new Set(st.subscribers.filter(isTestSub).map(s=>s.id));
+    if(!ids.size){alert('Aucun test à nettoyer.');return}
+    if(confirm('Nettoyer uniquement les abonnés TEST et leurs paiements liés ?')){
+      st.movements=st.movements.filter(m=>!ids.has(m.abosSubscriberId));
+      st.subscribers=st.subscribers.filter(s=>!ids.has(s.id));
+      render();
+      $('msg').textContent='Tests nettoyés. Les vrais abonnés restent.';
+    }
+  };
+  $('export').onclick=()=>{
+    const blob=new Blob([JSON.stringify(st,null,2)],{type:'application/json'});
+    const u=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=u;
+    a.download='digiy-pay-abos-'+today()+'.json';
+    a.click();
+    URL.revokeObjectURL(u);
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>
