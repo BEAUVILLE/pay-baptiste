@@ -261,6 +261,8 @@
   const menuFrais=$("menuFrais");if(menuFrais)menuFrais.onclick=()=>{closeModal("menuModal");location.href="./frais.html"};const menuActivities=$("menuActivities");if(menuActivities)menuActivities.onclick=()=>{closeModal("menuModal");renderActivitiesModal();openModal("activitiesModal")};const menuContacts=$("menuContacts");if(menuContacts)menuContacts.onclick=()=>{closeModal("menuModal");openContact()};const menuAdmin=$("menuAdmin");if(menuAdmin)menuAdmin.onclick=()=>{closeModal("menuModal");openModal("adminModal")};const menuBackup=$("menuBackup");if(menuBackup)menuBackup.onclick=()=>{closeModal("menuModal");setStatus("",false);openModal("backupModal")};const menuReset=$("menuReset");if(menuReset)menuReset.onclick=()=>{if(confirm("Vider mouvements et contacts ? Fais une sauvegarde avant si besoin.")){state=clone(defaults);save();closeModal("menuModal");render()}};
   $("btnBackupDownload").onclick=()=>{downloadJson();setStatus("Sauvegarde téléchargée.",false)};$("btnBackupCopy").onclick=async()=>{const text=JSON.stringify(exportPayload(),null,2),ok=await copyText(text);if(ok)setStatus("Sauvegarde copiée.",false);else{$("backupText").value=text;setStatus("Copie automatique impossible. JSON placé dans la zone texte.",true)}};$("btnBackupChoose").onclick=()=>$("backupFile").click();$("backupFile").onchange=async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{restorePayload(JSON.parse(await readFile(file)));e.target.value=""}catch(err){setStatus(err.message||"Import impossible.",true)}};$("btnBackupRestoreText").onclick=()=>{try{const text=String($("backupText").value||"").trim();if(!text)throw new Error("Colle une sauvegarde JSON avant de restaurer.");restorePayload(JSON.parse(text))}catch(err){setStatus(err.message||"Restauration impossible.",true)}};
   render();
+  window.digiyPayRender = render;
+  window.digiyPayPocket = pocket;
 })();
 </script>
 
@@ -312,14 +314,53 @@
         "Entrée salaire 200 000"<br>
         "Retraite 350 000 Sendwave"<br>
         "Business 50 000 Wave"<br><br>
-        <span style="color:#172016;font-size:11px">Sans mode précisé → Wave par défaut</span>
+        <span style="color:#172016;font-size:11px">Sans mode précisé → Wave par défaut · tu peux corriger avant confirmation</span>
       </div>
       <div style="text-align:center;padding:20px 0">
         <button id="btnMicStart" type="button" style="width:80px;height:80px;border-radius:999px;border:none;background:linear-gradient(135deg,#22c55e,#bbf7d0);color:#052215;font-size:32px;box-shadow:0 14px 30px rgba(34,197,94,.30)">🎙</button>
-        <div id="voixStatus" style="margin-top:12px;color:#695738;font-size:13px;font-weight:1000">Appuie pour parler</div>
+        <div id="voixStatus" style="margin-top:12px;color:#695738;font-size:13px;font-weight:1000">Appuie pour parler — une touche lance le micro</div>
       </div>
-      <div id="voixResult" style="display:none;padding:12px;border-radius:16px;background:rgba(244,210,122,.12);border:1px solid rgba(244,210,122,.22);color:#fff8e8;font-size:14px;font-weight:1000;margin-bottom:12px;text-align:center"></div>
-      <button id="btnVoixValider" type="button" style="display:none;width:100%;min-height:52px;border-radius:18px;border:none;background:linear-gradient(135deg,#22c55e,#bbf7d0);color:#052215;font-size:15px;font-weight:1100">✅ Confirmer ce mouvement</button>
+      <div id="voixResult" style="display:none;padding:12px;border-radius:16px;background:rgba(244,210,122,.12);border:1px solid rgba(244,210,122,.22);color:#172016;font-size:14px;font-weight:1000;margin-bottom:12px;text-align:center"></div>
+
+      <div id="voixEditBox" style="display:none;margin-top:10px;padding:12px;border-radius:20px;background:rgba(255,255,255,.82);border:1px solid rgba(78,56,25,.18)">
+        <div class="notice" style="background:#fffaf0;color:#172016;border-color:rgba(78,56,25,.18);margin-bottom:12px">PAY prépare. Tu peux corriger l'écrit, le libellé, le montant, le mode ou la nature avant de confirmer.</div>
+        <div class="field">
+          <label>Texte entendu / corrigeable</label>
+          <input id="voixTranscript" type="text" placeholder="Ex : Gasoil 15000 Wave">
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label>Nature</label>
+            <select id="voixType">
+              <option value="expense">− Sortie</option>
+              <option value="income">＋ Entrée</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Mode</label>
+            <select id="voixMode">
+              <option>Wave</option>
+              <option>Cash</option>
+              <option>Orange Money</option>
+              <option>Banque France</option>
+              <option>Sendwave</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label>Libellé</label>
+            <input id="voixLabel" type="text" placeholder="Gasoil, Senelec, Retraite...">
+          </div>
+          <div class="field">
+            <label>Montant</label>
+            <input id="voixAmount" type="number" inputmode="numeric" min="0" step="1" placeholder="0">
+          </div>
+        </div>
+        <button id="btnVoixReparser" type="button" class="soft" style="width:100%;margin-bottom:10px">🔁 Relire le texte corrigé</button>
+      </div>
+
+      <button id="btnVoixValider" type="button" style="display:none;width:100%;min-height:52px;border-radius:18px;border:none;background:linear-gradient(135deg,#22c55e,#bbf7d0);color:#052215;font-size:15px;font-weight:1100">✅ Confirmer cette trace</button>
     </div>
   </div>
 </div>
@@ -420,6 +461,13 @@
   const btnMicStart = document.getElementById('btnMicStart');
   const voixStatus = document.getElementById('voixStatus');
   const voixResult = document.getElementById('voixResult');
+  const voixEditBox = document.getElementById('voixEditBox');
+  const voixTranscript = document.getElementById('voixTranscript');
+  const voixType = document.getElementById('voixType');
+  const voixMode = document.getElementById('voixMode');
+  const voixLabel = document.getElementById('voixLabel');
+  const voixAmount = document.getElementById('voixAmount');
+  const btnVoixReparser = document.getElementById('btnVoixReparser');
   const btnVoixValider = document.getElementById('btnVoixValider');
   const voixNotice = document.getElementById('voixNotice');
 
@@ -428,14 +476,21 @@
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+  function openVoixModal(){
+    if(window.openModal) window.openModal('voixModal');
+    else document.getElementById('voixModal').classList.add('open');
+  }
+
   if(btnVoix){
     if(!SpeechRecognition){
       btnVoix.style.opacity = '0.4';
       btnVoix.title = 'Reconnaissance vocale non disponible sur ce navigateur';
     }
     btnVoix.onclick = () => {
-      if(window.openModal) window.openModal('voixModal');
-      else document.getElementById('voixModal').classList.add('open');
+      openVoixModal();
+      // Une seule touche : le bouton flottant ouvre et lance l'écoute.
+      // Si le navigateur bloque, le gros bouton micro permet de relancer.
+      if(SpeechRecognition) startVoiceListening();
     };
   }
 
@@ -464,93 +519,163 @@
     return {type, amount, mode, label};
   }
 
-  if(btnMicStart && SpeechRecognition){
-    btnMicStart.onclick = () => {
-      if(recognition){ try{ recognition.stop(); }catch(e){} }
-
-      recognition = new SpeechRecognition();
-      recognition.lang = 'fr-FR';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      btnMicStart.textContent = '⏹';
-      btnMicStart.style.background = 'linear-gradient(135deg,#f87171,#fecaca)';
-      voixStatus.textContent = 'Écoute en cours…';
-      voixResult.style.display = 'none';
-      btnVoixValider.style.display = 'none';
-      parsedMove = null;
-
-      recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        parsedMove = parseVoix(transcript);
-        voixResult.style.display = 'block';
-        voixResult.innerHTML = `"${transcript}"<br><br><strong>${parsedMove.type==='income'?'＋ Entrée':'− Sortie'}</strong> · ${parsedMove.label} · ${parsedMove.amount>0?parsedMove.amount.toLocaleString('fr-FR')+' F':'montant non détecté'} · ${parsedMove.mode}`;
-        btnVoixValider.style.display = parsedMove.amount > 0 ? 'block' : 'none';
-        voixStatus.textContent = parsedMove.amount > 0 ? 'Vérifier et confirmer' : 'Montant non détecté — réessaie';
-      };
-      recognition.onerror = () => { voixStatus.textContent = 'Erreur micro — réessaie'; };
-      recognition.onend = () => {
-        btnMicStart.textContent = '🎙';
-        btnMicStart.style.background = 'linear-gradient(135deg,#22c55e,#bbf7d0)';
-      };
-      recognition.start();
-    };
-  } else if(btnMicStart){
-    btnMicStart.onclick = () => { voixStatus.textContent = 'Non disponible sur ce navigateur.'; };
+  function setVoiceFields(move, transcript){
+    parsedMove = move || {type:'expense', amount:0, mode:'Wave', label:''};
+    if(voixTranscript) voixTranscript.value = transcript || '';
+    if(voixType) voixType.value = parsedMove.type || 'expense';
+    if(voixMode) voixMode.value = parsedMove.mode || 'Wave';
+    if(voixLabel) voixLabel.value = parsedMove.label || '';
+    if(voixAmount) voixAmount.value = parsedMove.amount > 0 ? String(parsedMove.amount) : '';
+    if(voixEditBox) voixEditBox.style.display = 'block';
+    updateVoiceValidation();
   }
 
-  if(btnVoixValider){
+  function readVoiceFields(){
+    const amount = Math.round(Number((voixAmount && voixAmount.value) || 0));
+    const label = String((voixLabel && voixLabel.value) || '').trim() || ((voixType && voixType.value)==='income'?'Entrée':'Dépense');
+    const type = (voixType && voixType.value)==='income' ? 'income' : 'expense';
+    const mode = String((voixMode && voixMode.value) || 'Wave').trim() || 'Wave';
+    parsedMove = {type, amount, mode, label};
+    return parsedMove;
+  }
+
+  function updateVoiceValidation(){
+    const move = readVoiceFields();
+    const ok = move.amount > 0 && move.label.length > 0;
+    if(btnVoixValider){
     btnVoixValider.onclick = () => {
-      if(!parsedMove || parsedMove.amount <= 0) return;
-      // Injecter dans PAY state via openMovement si disponible
-      if(window.openModal) {
-        // Fermer modal voix
-        document.getElementById('voixModal').classList.remove('open');
-        // Déclencher openMovement avec preset si fonction dispo globalement
-        // Fallback : injecter directement dans localStorage
-      }
-      // Injection directe dans localStorage PAY
+      const move = readVoiceFields();
+      if(!move || move.amount <= 0) return;
+
       try{
         const raw = localStorage.getItem(PAY_KEY);
-        const data = raw ? JSON.parse(raw) : null;
-        if(data && Array.isArray(data.movements)){
-          const id = 'v'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
-          const p = parsedMove.type === 'income' ? (data.settings&&data.settings.pocket||'pro') : (data.settings&&data.settings.pocket||'pro');
-          data.movements.push({
-            id, pocket:p, type:parsedMove.type,
-            mode:parsedMove.mode, amount:parsedMove.amount,
-            label:parsedMove.label, activity:p==='pro'?'PAY PRO':'Maison',
-            person:'#soi-même', note:'[voix]',
-            ts:new Date().toISOString()
-          });
-          localStorage.setItem(PAY_KEY, JSON.stringify(data));
-        }
-      }catch(e){}
+        const data = raw ? JSON.parse(raw) : {};
+        if(!data.settings) data.settings = {pocket:'pro'};
+        if(!Array.isArray(data.movements)) data.movements = [];
+        const id = 'v'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+        const p = (data.settings && data.settings.pocket) || (window.digiyPayPocket ? window.digiyPayPocket() : 'pro');
+        data.movements.push({
+          id,
+          pocket:p,
+          type:move.type,
+          mode:move.mode,
+          amount:move.amount,
+          label:move.label,
+          activity:move.type === 'income' ? (p==='pro' ? 'PAY PRO' : 'Maison') : (p==='pro' ? 'PAY PRO' : 'Charges'),
+          person:'#soi-même',
+          note:'[voix] '+String((voixTranscript && voixTranscript.value) || '').trim(),
+          ts:new Date().toISOString()
+        });
+        localStorage.setItem(PAY_KEY, JSON.stringify(data));
+      }catch(e){
+        if(voixStatus) voixStatus.textContent = 'Impossible d’enregistrer — vérifie la sauvegarde PAY';
+        return;
+      }
 
       document.getElementById('voixModal').classList.remove('open');
       document.body.classList.remove('modal-open');
 
-      // Flash ROI en relançant render si disponible
-      if(typeof render === 'function') render();
+      if(window.digiyPayRender) window.digiyPayRender();
 
-      voixResult.style.display = 'none';
-      btnVoixValider.style.display = 'none';
+      if(voixResult) voixResult.style.display = 'none';
+      if(voixEditBox) voixEditBox.style.display = 'none';
+      if(btnVoixValider) btnVoixValider.style.display = 'none';
       parsedMove = null;
-      voixStatus.textContent = 'Appuie pour parler';
+      if(voixStatus) voixStatus.textContent = 'Appuie pour parler';
 
-      // Toast rapide
       const t = document.createElement('div');
-      t.textContent = '✅ Mouvement vocal posé';
+      t.textContent = '✅ Trace vocale posée';
       t.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:999;padding:11px 20px;border-radius:999px;background:rgba(7,21,15,.96);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:1000;pointer-events:none;transition:opacity .3s';
       document.body.appendChild(t);
       setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 2000);
     };
   }
 
+
 })();
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
