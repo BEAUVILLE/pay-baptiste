@@ -21,6 +21,7 @@
   <meta name="theme-color" content="#07150f" />
   <meta name="description" content="PAY Baptiste : accueil allégé, saisie rapide plein écran, entrées modules, sorties libellés rapides, lecture instantanée et sauvegarde." />
   <!-- Sécurité : bouton Ouvrir retiré, aucun lien module ne peut allonger l’URL. -->
+  <!-- DIGIY PATCH : micro étendu aux rentrées modules avec source corrigeable. -->
   <!-- DIGIY PATCH : menu allégé, frais.html rattaché, bouton fermer session retiré, sources ajoutables. -->
   <style>
     :root{--bg:#06140f;--ink:#172016;--green:#167a46;--green2:#22c55e;--gold:#c4973f;--gold2:#f4d27a;--red:#9a3412;--line:rgba(78,56,25,.22);--max:560px;--shadow:0 18px 48px rgba(0,0,0,.24)}
@@ -335,10 +336,14 @@
             </select>
           </div>
         </div>
+        <div class="field">
+          <label>Source / module</label>
+          <select id="voixActivity"></select>
+        </div>
         <div class="grid2">
           <div class="field">
             <label>Libellé</label>
-            <input id="voixLabel" type="text" placeholder="Gasoil, Senelec, Retraite...">
+            <input id="voixLabel" type="text" placeholder="ABOS, LOC, Gasoil, Senelec...">
           </div>
           <div class="field">
             <label>Montant</label>
@@ -355,7 +360,7 @@
         <div class="notice" id="voixNotice" style="line-height:1.55;color:#172016;background:transparent;border:none;margin:8px 0 0;padding:0">
           <span style="display:block;color:#172016;font-size:12px;margin-bottom:6px">Libellé + montant + mode optionnel.</span>
           <b style="color:#172016">Sorties :</b> Gasoil 15 000 Wave · Senelec 8 500 · École 25 000<br>
-          <b style="color:#172016">Entrées :</b> Entrée salaire 200 000 · Retraite 350 000 Sendwave · Business 50 000 Wave<br>
+          <b style="color:#172016">Entrées :</b> ABOS 5 500 Wave · LOC 26 000 · BUILD 19 900 · Retraite 350 000 Sendwave<br>
           <span style="color:#172016;font-size:11px">Sans mode précisé → Wave par défaut.</span>
         </div>
       </details>
@@ -449,7 +454,7 @@
   setInterval(checkSoldeBas, 60 * 1000);
   window.addEventListener('storage', () => { checkSoldeBas(); checkBilan(); });
 
-  // ─── 3. MICRO PAY — VRAI BOUTON + CORRECTION AVANT VALIDATION ──────
+  // ─── 3. MICRO PAY — SORTIES + RENTRÉES MODULES, CORRECTION AVANT VALIDATION ──────
   const btnVoix = document.getElementById('btnVoix');
   const btnMicStart = document.getElementById('btnMicStart');
   const voixStatus = document.getElementById('voixStatus');
@@ -460,6 +465,7 @@
   const voixMode = document.getElementById('voixMode');
   const voixLabel = document.getElementById('voixLabel');
   const voixAmount = document.getElementById('voixAmount');
+  const voixActivity = document.getElementById('voixActivity');
   const btnVoixReparser = document.getElementById('btnVoixReparser');
   const btnVoixValider = document.getElementById('btnVoixValider');
   const voixModal = document.getElementById('voixModal');
@@ -483,6 +489,46 @@
     return s.settings && s.settings.pocket === 'perso' ? 'perso' : 'pro';
   }
 
+  function availableActivitiesForPocket(p){
+    const s = loadState();
+    const base = Array.isArray(s.activities) ? s.activities : [];
+    const names = base.filter(a => (a.pocket === p) && a.name).map(a => a.name);
+    const fallback = p === 'pro'
+      ? ['PAY PRO','ABOS','BUILD','LOC','DRIVER','MARKET','POS','RESA','EXPLORE','JOBS','RÉSEAU','NDIMBAL']
+      : ['Maison','Retraite','Crédit','Dette','Assurance','Charges'];
+    return Array.from(new Set(names.concat(fallback)));
+  }
+
+  function detectActivity(clean, type){
+    const rules = [
+      [/\b(abos?|abonnement|abo)\b/i, 'ABOS'],
+      [/\b(build|artisan|chantier|macon|plombier|service)\b/i, 'BUILD'],
+      [/\b(loc|location|loyer recu|logement|villa|appartement|chambre)\b/i, 'LOC'],
+      [/\b(driver|chauffeur|trajet|course|transport client)\b/i, 'DRIVER'],
+      [/\b(market|boutique|vente|produit|commande)\b/i, 'MARKET'],
+      [/\b(pos|caisse|commerce|magasin)\b/i, 'POS'],
+      [/\b(resa|reservation|table|restaurant|resto)\b/i, 'RESA'],
+      [/\b(explore|visite|lieu|decouverte)\b/i, 'EXPLORE'],
+      [/\b(jobs?|mission|travail)\b/i, 'JOBS'],
+      [/\b(reseau|reseau digiy|annonce)\b/i, 'RÉSEAU'],
+      [/\b(ndimbal|aide)\b/i, 'NDIMBAL'],
+      [/\b(retraite|pension)\b/i, 'Retraite']
+    ];
+    for(const [re, name] of rules){
+      if(re.test(clean)) return name;
+    }
+    return type === 'income' ? (currentPocket() === 'pro' ? 'PAY PRO' : 'Maison') : (currentPocket() === 'pro' ? 'PAY PRO' : 'Charges');
+  }
+
+  function fillVoiceActivityOptions(selected){
+    if(!voixActivity) return;
+    const p = currentPocket();
+    const names = availableActivitiesForPocket(p);
+    if(selected && !names.includes(selected)) names.unshift(selected);
+    voixActivity.innerHTML = names.map(n => '<option value="'+String(n).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'">'+String(n).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))+'</option>').join('');
+    voixActivity.value = selected && names.includes(selected) ? selected : (names[0] || 'PAY PRO');
+  }
+
   function normalizeText(text){
     return String(text || '')
       .toLowerCase()
@@ -497,13 +543,12 @@
     const original = String(text || '').trim();
     const clean = normalizeText(original);
 
+    const incomeRe = /\b(entree|rentree|rentre|recu|encaiss|encaissement|recette|revenu|salaire|retraite|pension|business|vente|vendu|client paye|client a paye|paiement recu|abonnement|abos|abo|don|cadeau|remboursement|virement recu|build|loc|driver|market|pos|resa|explore|jobs|reseau|ndimbal)\b/i;
+    const expenseRe = /\b(sortie|depense|depenser|payer|paye facture|facture|achat|gasoil|carburant|senelec|eau|sen eau|telephone|wifi|wi fi|loyer|ecole|courses|ravitaillement|voiture|assurance|impot|impots|prelevement|retrait cash out)\b/i;
+
     let type = 'expense';
-    if(/\b(entree|recu|recette|revenu|salaire|retraite|business|vente|abonnement|abos|don|cadeau|remboursement|virement)\b/i.test(clean)){
-      type = 'income';
-    }
-    if(/\b(sortie|depense|payer|paye|facture|achat|gasoil|senelec|eau|sen eau|telephone|wifi|wi fi|loyer|ecole|courses|ravitaillement|voiture)\b/i.test(clean)){
-      type = 'expense';
-    }
+    if(incomeRe.test(clean)) type = 'income';
+    if(expenseRe.test(clean)) type = 'expense';
 
     let amount = 0;
     const numMatch = clean.match(/(\d[\d\s.,]*)\s*(?:f|fcfa|cfa|francs?)?\b/i);
@@ -520,29 +565,35 @@
     else if(/\b(sendwave)\b/i.test(clean)) mode = 'Sendwave';
     else if(/\b(wave)\b/i.test(clean)) mode = 'Wave';
 
+    const activity = detectActivity(clean, type);
+
     const stopWords = new Set([
       'wave','cash','espece','especes','liquide','orange','money','om','carte','sendwave','banque','france','virement',
-      'f','fcfa','cfa','franc','francs','entree','sortie','depense','recu','recette','payer','paye',
+      'f','fcfa','cfa','franc','francs','entree','rentree','rentre','sortie','depense','recu','recette','revenu','payer','paye','paiement','encaissement','encaisse',
       'le','la','les','un','une','de','du','des','pour','sur','avec','par','mon','ma','mes'
     ]);
     const labelWords = clean
       .replace(/\d[\d\s.,]*/g,' ')
       .split(/\s+/)
       .filter(w => w.length > 1 && !stopWords.has(w));
-    const label = labelWords.length
+    let label = labelWords.length
       ? labelWords.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
       : (type === 'income' ? 'Entrée' : 'Dépense');
+    if(type === 'income' && activity && ['ABOS','BUILD','LOC','DRIVER','MARKET','POS','RESA','EXPLORE','JOBS','RÉSEAU','NDIMBAL'].includes(activity)){
+      label = activity;
+    }
 
-    return {type, amount, mode, label, transcript: original};
+    return {type, amount, mode, label, activity, transcript: original};
   }
 
   function setVoiceFields(move, transcript){
-    parsedMove = move || {type:'expense', amount:0, mode:'Wave', label:'Dépense'};
+    parsedMove = move || {type:'expense', amount:0, mode:'Wave', label:'Dépense', activity: currentPocket() === 'pro' ? 'PAY PRO' : 'Charges'};
     if(voixTranscript) voixTranscript.value = transcript || parsedMove.transcript || '';
     if(voixType) voixType.value = parsedMove.type || 'expense';
     if(voixMode) voixMode.value = parsedMove.mode || 'Wave';
     if(voixLabel) voixLabel.value = parsedMove.label || '';
     if(voixAmount) voixAmount.value = parsedMove.amount > 0 ? String(parsedMove.amount) : '';
+    fillVoiceActivityOptions(parsedMove.activity);
     if(voixEditBox) voixEditBox.style.display = 'block';
     updateVoiceValidation();
   }
@@ -552,7 +603,8 @@
     const type = voixType && voixType.value === 'income' ? 'income' : 'expense';
     const mode = String((voixMode && voixMode.value) || 'Wave').trim() || 'Wave';
     const label = String((voixLabel && voixLabel.value) || '').trim() || (type === 'income' ? 'Entrée' : 'Dépense');
-    parsedMove = {type, amount, mode, label, transcript: voixTranscript ? voixTranscript.value : ''};
+    const activity = String((voixActivity && voixActivity.value) || (type === 'income' ? (currentPocket() === 'pro' ? 'PAY PRO' : 'Maison') : (currentPocket() === 'pro' ? 'PAY PRO' : 'Charges'))).trim();
+    parsedMove = {type, amount, mode, label, activity, transcript: voixTranscript ? voixTranscript.value : ''};
     return parsedMove;
   }
 
@@ -561,7 +613,7 @@
     const ok = move.amount > 0 && move.label.length > 0;
     if(voixResult){
       voixResult.style.display = 'block';
-      voixResult.textContent = (move.type === 'income' ? '＋ Entrée' : '− Sortie') + ' · ' + move.label + ' · ' + (move.amount > 0 ? fmt(move.amount) : 'montant à corriger') + ' · ' + move.mode;
+      voixResult.textContent = (move.type === 'income' ? '＋ Entrée' : '− Sortie') + ' · ' + (move.activity || 'Source') + ' · ' + move.label + ' · ' + (move.amount > 0 ? fmt(move.amount) : 'montant à corriger') + ' · ' + move.mode;
     }
     if(btnVoixValider){
       btnVoixValider.style.display = 'block';
@@ -572,7 +624,7 @@
 
   function prepareManualEntry(message){
     if(voixStatus) voixStatus.textContent = message || 'Micro indisponible : écris ou corrige la trace ici.';
-    setVoiceFields({type:'expense', amount:0, mode:'Wave', label:'Dépense', transcript:''}, '');
+    setVoiceFields({type:'expense', amount:0, mode:'Wave', label:'Dépense', activity: currentPocket() === 'pro' ? 'PAY PRO' : 'Charges', transcript:''}, '');
     if(voixTranscript) voixTranscript.focus();
   }
 
@@ -645,10 +697,12 @@
   }
   if(btnMicStart) btnMicStart.onclick = () => startVoiceListening();
 
-  [voixTranscript, voixType, voixMode, voixLabel, voixAmount].forEach(el => {
+  [voixTranscript, voixType, voixMode, voixLabel, voixAmount, voixActivity].forEach(el => {
     if(el) el.addEventListener('input', updateVoiceValidation);
     if(el && el.tagName === 'SELECT') el.addEventListener('change', updateVoiceValidation);
   });
+
+  if(voixType) voixType.addEventListener('change', () => { const m = readVoiceFields(); fillVoiceActivityOptions(m.activity); updateVoiceValidation(); });
 
   if(btnVoixReparser){
     btnVoixReparser.onclick = () => {
@@ -685,7 +739,7 @@
           mode: move.mode,
           amount: move.amount,
           label: move.label,
-          activity: move.type === 'income' ? (p === 'pro' ? 'PAY PRO' : 'Maison') : (p === 'pro' ? 'PAY PRO' : 'Charges'),
+          activity: move.activity || (move.type === 'income' ? (p === 'pro' ? 'PAY PRO' : 'Maison') : (p === 'pro' ? 'PAY PRO' : 'Charges')),
           person: '#soi-même',
           note: '[voix] ' + String((voixTranscript && voixTranscript.value) || '').trim(),
           ts: new Date().toISOString()
@@ -718,6 +772,87 @@
 
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
