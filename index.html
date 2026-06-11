@@ -7,13 +7,92 @@
   <script>
     (function(){
       "use strict";
-      const SESSION_KEY="digiy_pay_baptiste_validated_at";
-      const SESSION_MS=8*60*60*1000;
-      const PIN_PAGE="./pin.html";
-      const ts=Number(localStorage.getItem(SESSION_KEY)||0);
-      const valid=ts&&Number.isFinite(ts)&&(Date.now()-ts<SESSION_MS);
-      if(!valid){
-        window.location.replace("./pin.html?next=index.html");
+
+      const SESSION_MS = 8 * 60 * 60 * 1000;
+      const PIN_PAGE = "./pin.html";
+
+      function read(key){
+        try { return sessionStorage.getItem(key) || localStorage.getItem(key) || ""; }
+        catch(_) { return ""; }
+      }
+
+      function parseTime(value){
+        if(value === null || value === undefined || value === "") return 0;
+
+        if(typeof value === "number" && Number.isFinite(value)){
+          return value < 100000000000 ? value * 1000 : value;
+        }
+
+        const str = String(value).trim();
+        if(!str) return 0;
+
+        if(/^\d+$/.test(str)){
+          const n = Number(str);
+          if(!Number.isFinite(n)) return 0;
+          return n < 100000000000 ? n * 1000 : n;
+        }
+
+        const d = Date.parse(str);
+        return Number.isFinite(d) ? d : 0;
+      }
+
+      function isSessionFresh(session){
+        if(!session || typeof session !== "object") return false;
+
+        const moduleName = String(session.module || session.module_code || "PAY").toUpperCase();
+        const moduleOk = !moduleName || moduleName === "PAY";
+
+        const accessOk =
+          session.access === true ||
+          session.access_ok === true ||
+          session.ok === true ||
+          session.has_access === true ||
+          session.pin_session_ok === true;
+
+        const expiresAt = parseTime(session.expires_at || session.expiresAt || 0);
+        const validatedAt =
+          parseTime(session.verified_at) ||
+          parseTime(session.validated_at) ||
+          parseTime(session.validated_at_ms) ||
+          parseTime(session.ts) ||
+          parseTime(session.created_at);
+
+        return moduleOk && accessOk && (
+          (expiresAt && Date.now() < expiresAt) ||
+          (validatedAt && Date.now() - validatedAt < SESSION_MS)
+        );
+      }
+
+      function sessionOk(){
+        /* Ancienne clé conservée en secours si elle existe encore sur ton téléphone */
+        const oldTs = Number(read("digiy_pay_baptiste_validated_at") || 0);
+        if(oldTs && Number.isFinite(oldTs) && Date.now() - oldTs < SESSION_MS) return true;
+
+        /* Clés réellement écrites par pin.html + reconnues par guard.js */
+        const keys = [
+          "digiy_pay_session",
+          "digiy_pay_guard_session",
+          "digiy_guard_pay_session",
+          "DIGIY_PAY_SESSION",
+          "DIGIY_PAY_PIN_SESSION",
+          "DIGIY_SESSION_PAY",
+          "digiy_guard_session"
+        ];
+
+        for(const key of keys){
+          try{
+            const raw = read(key);
+            if(!raw) continue;
+            const session = JSON.parse(raw);
+            if(isSessionFresh(session)) return true;
+          }catch(_){}
+        }
+
+        return false;
+      }
+
+      if(!sessionOk()){
+        window.location.replace(PIN_PAGE + "?return=index.html");
       }
     })();
   </script>
@@ -290,6 +369,24 @@
   
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
