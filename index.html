@@ -375,22 +375,22 @@
   const SEUIL_KEY = 'digiy_pay_seuil_bas';
 
   function loadState(){
-    try{ return JSON.parse(localStorage.getItem(PAY_KEY)||'{}'); }catch(e){ return {}; }
+    try{ return JSON.parse(localStorage.getItem(PAY_KEY) || '{}'); }catch(e){ return {}; }
   }
+  function saveState(data){ localStorage.setItem(PAY_KEY, JSON.stringify(data)); }
   function fmt(n){ return Math.abs(Math.round(Number(n||0))).toLocaleString('fr-FR').replace(/\u202f/g,' ')+' F'; }
   function today(){ return new Date().toDateString(); }
 
   // ─── 1. BILAN FIN DE JOURNÉE ────────────────────────────────────────
   function checkBilan(){
     const h = new Date().getHours();
-    if(h < 20) return; // avant 20h on ne montre pas
-    const lastShown = localStorage.getItem(BILAN_KEY);
-    if(lastShown === today()) return; // déjà montré aujourd'hui
+    if(h < 20) return;
+    if(localStorage.getItem(BILAN_KEY) === today()) return;
 
     const s = loadState();
     const mvts = Array.isArray(s.movements) ? s.movements : [];
-    const todayMvts = mvts.filter(m => new Date(m.ts).toDateString() === today());
-    if(!todayMvts.length) return; // rien posé aujourd'hui
+    const todayMvts = mvts.filter(m => m.ts && new Date(m.ts).toDateString() === today());
+    if(!todayMvts.length) return;
 
     const income = todayMvts.filter(m=>m.type==='income').reduce((t,m)=>t+Number(m.amount||0),0);
     const expense = todayMvts.filter(m=>m.type==='expense').reduce((t,m)=>t+Number(m.amount||0),0);
@@ -398,7 +398,7 @@
 
     const banner = document.getElementById('bilanBanner');
     const text = document.getElementById('bilanText');
-    if(!banner||!text) return;
+    if(!banner || !text) return;
 
     text.innerHTML = `＋${fmt(income)} entrées &nbsp;·&nbsp; −${fmt(expense)} sorties &nbsp;·&nbsp; <strong style="color:${net>=0?'#bbf7d0':'#fecaca'}">Net ${net>=0?'＋':'−'}${fmt(Math.abs(net))}</strong>`;
     banner.style.display = 'block';
@@ -410,8 +410,6 @@
     const b = document.getElementById('bilanBanner');
     if(b) b.style.display = 'none';
   };
-
-  // Vérifie au chargement et toutes les 5 min
   checkBilan();
   setInterval(checkBilan, 5 * 60 * 1000);
 
@@ -428,13 +426,13 @@
     const alerte = document.getElementById('alerteSoldeBas');
     const texte = document.getElementById('alerteSoldeText');
     const numEl = document.getElementById('balanceNumber');
-    if(!alerte||!texte) return;
+    if(!alerte || !texte) return;
 
     if(solde < seuil){
       texte.textContent = 'Solde ' + pocket.toUpperCase() + ' sous ' + fmt(seuil) + ' — ' + fmt(solde) + ' restant';
       alerte.style.display = 'flex';
       if(numEl){ numEl.style.color='#f87171'; numEl.style.animation='flashNum .6s ease 3'; }
-    } else {
+    }else{
       alerte.style.display = 'none';
       if(numEl){ numEl.style.color=''; numEl.style.animation=''; }
     }
@@ -446,17 +444,14 @@
     const v = prompt("Seuil d'alerte solde bas (F CFA) — 0 pour désactiver :", actuel);
     if(v === null) return;
     const n = Math.round(Number(String(v).replace(/\s/g,'').replace(',','.')));
-    localStorage.setItem(SEUIL_KEY, String(isNaN(n)?0:n));
+    localStorage.setItem(SEUIL_KEY, String(isNaN(n) ? 0 : n));
     checkSoldeBas();
   };
-
   checkSoldeBas();
   setInterval(checkSoldeBas, 60 * 1000);
-
-  // Observer les changements localStorage (mouvements ajoutés)
   window.addEventListener('storage', () => { checkSoldeBas(); checkBilan(); });
 
-  // ─── 3. NOTE VOCALE RAPIDE ──────────────────────────────────────────
+  // ─── 3. MICRO PAY — VRAI BOUTON + CORRECTION AVANT VALIDATION ──────
   const btnVoix = document.getElementById('btnVoix');
   const btnMicStart = document.getElementById('btnMicStart');
   const voixStatus = document.getElementById('voixStatus');
@@ -469,59 +464,83 @@
   const voixAmount = document.getElementById('voixAmount');
   const btnVoixReparser = document.getElementById('btnVoixReparser');
   const btnVoixValider = document.getElementById('btnVoixValider');
-  const voixNotice = document.getElementById('voixNotice');
-
-  let parsedMove = null;
-  let recognition = null;
+  const voixModal = document.getElementById('voixModal');
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isListening = false;
+  let parsedMove = null;
 
-  function openVoixModal(){
-    if(window.openModal) window.openModal('voixModal');
-    else document.getElementById('voixModal').classList.add('open');
+  function setModalOpen(open){
+    if(!voixModal) return;
+    voixModal.classList.toggle('open', !!open);
+    document.body.classList.toggle('modal-open', !!open);
   }
 
-  if(btnVoix){
-    if(!SpeechRecognition){
-      btnVoix.style.opacity = '0.4';
-      btnVoix.title = 'Reconnaissance vocale non disponible sur ce navigateur';
+  function currentPocket(){
+    if(window.digiyPayPocket){
+      try{ return window.digiyPayPocket() === 'perso' ? 'perso' : 'pro'; }catch(e){}
     }
-    btnVoix.onclick = () => {
-      openVoixModal();
-      // Une seule touche : le bouton flottant ouvre et lance l'écoute.
-      // Si le navigateur bloque, le gros bouton micro permet de relancer.
-      if(SpeechRecognition) startVoiceListening();
-    };
+    const s = loadState();
+    return s.settings && s.settings.pocket === 'perso' ? 'perso' : 'pro';
+  }
+
+  function normalizeText(text){
+    return String(text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .replace(/[’']/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
   }
 
   function parseVoix(text){
-    text = text.toLowerCase().trim();
-    // Détection type
+    const original = String(text || '').trim();
+    const clean = normalizeText(original);
+
     let type = 'expense';
-    if(/entr[eé]e|salaire|retraite|business|recette|revenu|reçu|recu|don|cadeau|remboursement/i.test(text)) type = 'income';
+    if(/\b(entree|recu|recette|revenu|salaire|retraite|business|vente|abonnement|abos|don|cadeau|remboursement|virement)\b/i.test(clean)){
+      type = 'income';
+    }
+    if(/\b(sortie|depense|payer|paye|facture|achat|gasoil|senelec|eau|sen eau|telephone|wifi|wi fi|loyer|ecole|courses|ravitaillement|voiture)\b/i.test(clean)){
+      type = 'expense';
+    }
 
-    // Extraction montant
-    const numMatch = text.match(/(\d[\d\s.,]*)\s*(f|cfa|franc)?/i);
-    const amount = numMatch ? Math.round(Number(numMatch[1].replace(/[\s,]/g,'').replace('.',''))) : 0;
+    let amount = 0;
+    const numMatch = clean.match(/(\d[\d\s.,]*)\s*(?:f|fcfa|cfa|francs?)?\b/i);
+    if(numMatch){
+      const raw = numMatch[1].replace(/\s/g,'').replace(/,/g,'.');
+      amount = Math.round(Number(raw));
+      if(!Number.isFinite(amount)) amount = 0;
+    }
 
-    // Extraction mode
     let mode = 'Wave';
-    if(/espèce|espece|cash|liquide/i.test(text)) mode = 'Cash';
-    else if(/orange|om/i.test(text)) mode = 'Orange Money';
-    else if(/carte|bancaire/i.test(text)) mode = 'Banque France';
-    else if(/sendwave/i.test(text)) mode = 'Sendwave';
+    if(/\b(cash|espece|especes|liquide)\b/i.test(clean)) mode = 'Cash';
+    else if(/\b(orange|orange money|om)\b/i.test(clean)) mode = 'Orange Money';
+    else if(/\b(carte|banque france|bancaire|virement)\b/i.test(clean)) mode = 'Banque France';
+    else if(/\b(sendwave)\b/i.test(clean)) mode = 'Sendwave';
+    else if(/\b(wave)\b/i.test(clean)) mode = 'Wave';
 
-    // Extraction libellé (mots restants non numériques)
-    const stopWords = ['wave','cash','espèces','espece','orange','money','carte','sendwave','f','cfa','franc','entrée','entree','sortie','le','la','les','un','une','de','du','pour','sur'];
-    const words = text.replace(/\d[\d\s.,]*/g,'').split(/\s+/).filter(w=>w.length>2&&!stopWords.includes(w));
-    const label = words.length ? words.map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ') : (type==='income'?'Entrée':'Dépense');
+    const stopWords = new Set([
+      'wave','cash','espece','especes','liquide','orange','money','om','carte','sendwave','banque','france','virement',
+      'f','fcfa','cfa','franc','francs','entree','sortie','depense','recu','recette','payer','paye',
+      'le','la','les','un','une','de','du','des','pour','sur','avec','par','mon','ma','mes'
+    ]);
+    const labelWords = clean
+      .replace(/\d[\d\s.,]*/g,' ')
+      .split(/\s+/)
+      .filter(w => w.length > 1 && !stopWords.has(w));
+    const label = labelWords.length
+      ? labelWords.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : (type === 'income' ? 'Entrée' : 'Dépense');
 
-    return {type, amount, mode, label};
+    return {type, amount, mode, label, transcript: original};
   }
 
   function setVoiceFields(move, transcript){
-    parsedMove = move || {type:'expense', amount:0, mode:'Wave', label:''};
-    if(voixTranscript) voixTranscript.value = transcript || '';
+    parsedMove = move || {type:'expense', amount:0, mode:'Wave', label:'Dépense'};
+    if(voixTranscript) voixTranscript.value = transcript || parsedMove.transcript || '';
     if(voixType) voixType.value = parsedMove.type || 'expense';
     if(voixMode) voixMode.value = parsedMove.mode || 'Wave';
     if(voixLabel) voixLabel.value = parsedMove.label || '';
@@ -532,70 +551,255 @@
 
   function readVoiceFields(){
     const amount = Math.round(Number((voixAmount && voixAmount.value) || 0));
-    const label = String((voixLabel && voixLabel.value) || '').trim() || ((voixType && voixType.value)==='income'?'Entrée':'Dépense');
-    const type = (voixType && voixType.value)==='income' ? 'income' : 'expense';
+    const type = voixType && voixType.value === 'income' ? 'income' : 'expense';
     const mode = String((voixMode && voixMode.value) || 'Wave').trim() || 'Wave';
-    parsedMove = {type, amount, mode, label};
+    const label = String((voixLabel && voixLabel.value) || '').trim() || (type === 'income' ? 'Entrée' : 'Dépense');
+    parsedMove = {type, amount, mode, label, transcript: voixTranscript ? voixTranscript.value : ''};
     return parsedMove;
   }
 
   function updateVoiceValidation(){
     const move = readVoiceFields();
     const ok = move.amount > 0 && move.label.length > 0;
+    if(voixResult){
+      voixResult.style.display = 'block';
+      voixResult.textContent = (move.type === 'income' ? '＋ Entrée' : '− Sortie') + ' · ' + move.label + ' · ' + (move.amount > 0 ? fmt(move.amount) : 'montant à corriger') + ' · ' + move.mode;
+    }
     if(btnVoixValider){
+      btnVoixValider.style.display = 'block';
+      btnVoixValider.disabled = !ok;
+      btnVoixValider.style.opacity = ok ? '1' : '.45';
+    }
+  }
+
+  function prepareManualEntry(message){
+    if(voixStatus) voixStatus.textContent = message || 'Micro indisponible : écris ou corrige la trace ici.';
+    setVoiceFields({type:'expense', amount:0, mode:'Wave', label:'Dépense', transcript:''}, '');
+    if(voixTranscript) voixTranscript.focus();
+  }
+
+  function startVoiceListening(){
+    setModalOpen(true);
+    if(!SpeechRecognition){
+      prepareManualEntry('Micro non disponible sur ce navigateur. Tu peux écrire la phrase puis relire.');
+      return;
+    }
+
+    try{
+      if(recognition && isListening) recognition.stop();
+    }catch(e){}
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    let gotResult = false;
+
+    recognition.onstart = () => {
+      isListening = true;
+      if(voixStatus) voixStatus.textContent = '🎙 J’écoute… parle clairement';
+      if(btnMicStart) btnMicStart.textContent = '■';
+    };
+
+    recognition.onresult = (event) => {
+      gotResult = true;
+      const transcript = event.results && event.results[0] && event.results[0][0]
+        ? event.results[0][0].transcript
+        : '';
+      const move = parseVoix(transcript);
+      if(voixStatus) voixStatus.textContent = 'Texte reçu. Corrige si besoin, puis confirme.';
+      setVoiceFields(move, transcript);
+    };
+
+    recognition.onerror = (event) => {
+      const code = event && event.error ? event.error : 'erreur';
+      if(code === 'not-allowed' || code === 'service-not-allowed'){
+        prepareManualEntry('Micro bloqué par le navigateur. Autorise le micro ou écris la trace ici.');
+      }else if(code === 'no-speech'){
+        if(voixStatus) voixStatus.textContent = 'Je n’ai rien entendu. Appuie encore sur le micro.';
+      }else{
+        prepareManualEntry('Micro non lancé (' + code + '). Tu peux écrire la trace ici.');
+      }
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      if(btnMicStart) btnMicStart.textContent = '🎙';
+      if(!gotResult && voixStatus && SpeechRecognition){
+        voixStatus.textContent = voixStatus.textContent || 'Appuie pour relancer le micro.';
+      }
+    };
+
+    try{
+      recognition.start();
+    }catch(e){
+      prepareManualEntry('Le micro n’a pas démarré. Appuie sur le gros micro ou écris la trace.');
+    }
+  }
+
+  if(btnVoix){
+    btnVoix.onclick = () => startVoiceListening();
+    if(!SpeechRecognition){
+      btnVoix.title = 'Micro non disponible : saisie manuelle corrigible ouverte';
+    }
+  }
+  if(btnMicStart) btnMicStart.onclick = () => startVoiceListening();
+
+  [voixTranscript, voixType, voixMode, voixLabel, voixAmount].forEach(el => {
+    if(el) el.addEventListener('input', updateVoiceValidation);
+    if(el && el.tagName === 'SELECT') el.addEventListener('change', updateVoiceValidation);
+  });
+
+  if(btnVoixReparser){
+    btnVoixReparser.onclick = () => {
+      const transcript = String((voixTranscript && voixTranscript.value) || '').trim();
+      if(!transcript){
+        prepareManualEntry('Écris une phrase puis clique Relire.');
+        return;
+      }
+      const move = parseVoix(transcript);
+      setVoiceFields(move, transcript);
+      if(voixStatus) voixStatus.textContent = 'Texte relu. Corrige encore si besoin.';
+    };
+  }
+
+  if(btnVoixValider){
     btnVoixValider.onclick = () => {
       const move = readVoiceFields();
-      if(!move || move.amount <= 0) return;
-
-      try{
-        const raw = localStorage.getItem(PAY_KEY);
-        const data = raw ? JSON.parse(raw) : {};
-        if(!data.settings) data.settings = {pocket:'pro'};
-        if(!Array.isArray(data.movements)) data.movements = [];
-        const id = 'v'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
-        const p = (data.settings && data.settings.pocket) || (window.digiyPayPocket ? window.digiyPayPocket() : 'pro');
-        data.movements.push({
-          id,
-          pocket:p,
-          type:move.type,
-          mode:move.mode,
-          amount:move.amount,
-          label:move.label,
-          activity:move.type === 'income' ? (p==='pro' ? 'PAY PRO' : 'Maison') : (p==='pro' ? 'PAY PRO' : 'Charges'),
-          person:'#soi-même',
-          note:'[voix] '+String((voixTranscript && voixTranscript.value) || '').trim(),
-          ts:new Date().toISOString()
-        });
-        localStorage.setItem(PAY_KEY, JSON.stringify(data));
-      }catch(e){
-        if(voixStatus) voixStatus.textContent = 'Impossible d’enregistrer — vérifie la sauvegarde PAY';
+      if(!move || move.amount <= 0){
+        if(voixStatus) voixStatus.textContent = 'Montant manquant : corrige avant de confirmer.';
+        if(voixAmount) voixAmount.focus();
         return;
       }
 
-      document.getElementById('voixModal').classList.remove('open');
-      document.body.classList.remove('modal-open');
+      try{
+        const data = loadState();
+        if(!data.settings) data.settings = {pocket: currentPocket()};
+        if(!Array.isArray(data.movements)) data.movements = [];
+        const p = currentPocket();
+        const id = 'v' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
+        data.movements.push({
+          id,
+          pocket: p,
+          type: move.type,
+          mode: move.mode,
+          amount: move.amount,
+          label: move.label,
+          activity: move.type === 'income' ? (p === 'pro' ? 'PAY PRO' : 'Maison') : (p === 'pro' ? 'PAY PRO' : 'Charges'),
+          person: '#soi-même',
+          note: '[voix] ' + String((voixTranscript && voixTranscript.value) || '').trim(),
+          ts: new Date().toISOString()
+        });
+        data.settings.pocket = p;
+        saveState(data);
+      }catch(e){
+        if(voixStatus) voixStatus.textContent = 'Impossible d’enregistrer — fais une sauvegarde PAY puis réessaie.';
+        return;
+      }
 
+      setModalOpen(false);
       if(window.digiyPayRender) window.digiyPayRender();
-
       if(voixResult) voixResult.style.display = 'none';
       if(voixEditBox) voixEditBox.style.display = 'none';
       if(btnVoixValider) btnVoixValider.style.display = 'none';
       parsedMove = null;
-      if(voixStatus) voixStatus.textContent = 'Appuie pour parler';
+      if(voixStatus) voixStatus.textContent = 'Appuie pour parler — une touche lance le micro';
 
       const t = document.createElement('div');
       t.textContent = '✅ Trace vocale posée';
       t.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:999;padding:11px 20px;border-radius:999px;background:rgba(7,21,15,.96);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:1000;pointer-events:none;transition:opacity .3s';
       document.body.appendChild(t);
       setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 2000);
+      checkSoldeBas();
     };
   }
-
-
 })();
 </script>
+
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
