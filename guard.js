@@ -1,4 +1,3 @@
-
 /* guard.js — DIGIY PAY Baptiste
    Protection privée : session 8h + PIN + menu ABOS
    Attention : ceci protège côté navigateur. Pour coffre fort réel :
@@ -97,8 +96,13 @@
   };
 
   // pin.html peut charger ce guard sans boucle.
+  // Délai 120ms pour laisser localStorage se stabiliser après redirect depuis pin.html.
   if(!isPin() && !valid()){
-    redirectToPin();
+    setTimeout(function(){
+      if(!valid()){
+        redirectToPin();
+      }
+    }, 120);
     return;
   }
 
