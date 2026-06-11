@@ -399,7 +399,7 @@
   const btnSeuil = document.getElementById('alerteSeuil');
   if(btnSeuil) btnSeuil.onclick = () => {
     const actuel = localStorage.getItem(SEUIL_KEY) || '50000';
-    const v = prompt('Seuil d'alerte solde bas (F CFA) — 0 pour désactiver :', actuel);
+    const v = prompt("Seuil d'alerte solde bas (F CFA) — 0 pour désactiver :", actuel);
     if(v === null) return;
     const n = Math.round(Number(String(v).replace(/\s/g,'').replace(',','.')));
     localStorage.setItem(SEUIL_KEY, String(isNaN(n)?0:n));
@@ -548,7 +548,6 @@
 </script>
 </body>
 </html>
-
 
 
 
