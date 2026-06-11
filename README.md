@@ -4,7 +4,7 @@ Le paiement valide est dans payments avec status='completed', reference/transact
 
 L’activation réelle des accès se fait uniquement dans pro_modules (pas ailleurs).
 
-pro_modules.module accepte uniquement : DRIVER, LOC, RESA, RESTO, MARKET, JOBS, BUILD, FRET_DRIVER, FRET_CLIENT, PAY (MAJUSCULE).
+pro_modules.module accepte uniquement :  DRIVER, LOC, RESA, RESTO, MARKET, JOBS, BUILD, FRET_DRIVER, FRET_CLIENT, PAY (MAJUSCULE).
 
 Toujours créer l’index unique : (pro_id, module) pour éviter les doublons.
 
